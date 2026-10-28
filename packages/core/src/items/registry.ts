@@ -18,6 +18,8 @@ import { sentenceBuilderDefinition } from './sentenceBuilder';
 import { audioDefinition } from './audio';
 import { dictationDefinition } from './dictation';
 import { speakingDefinition } from './speaking';
+import { observationNotesDefinition } from './observationNotes';
+import { writingDefinition } from './writing';
 
 export type { ItemDefinition, GradeContext } from './definition';
 
@@ -175,6 +177,8 @@ const registry: { [K in ItemType]: ItemDefinition<Extract<Item, { type: K }>, an
   audio: audioDefinition,
   dictation: dictationDefinition,
   speaking: speakingDefinition,
+  'observation-notes': observationNotesDefinition,
+  writing: writingDefinition,
 };
 
 export function getItemDefinition<T extends ItemType>(type: T): ItemDefinition<Extract<Item, { type: T }>, any> {

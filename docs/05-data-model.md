@@ -2,9 +2,9 @@
 
 All documents are JSON with `kind` and `schemaVersion`. IDs are random, prefixed and URL-safe (`act_…`, `itm_…`, `att_…`) and never derived from names. Source of truth for implemented types: `packages/core/src/schema/*.ts` (zod).
 
-## Implemented (Phases 1–3)
+## Implemented (Phases 1–4)
 
-### Activity (`ilp.activity`, schema 3) — the editable draft
+### Activity (`ilp.activity`, schema 4) — the editable draft
 | Field | Type | Notes |
 |---|---|---|
 | id, title, description, language (BCP 47), subject, gradeBand | string | |

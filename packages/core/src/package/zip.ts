@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Activity } from '../schema/activity';
 import { canonicalJson, sha256Hex } from '../hash';
 import { activityAssets } from '../items/registry';
-import { assetIdFor, EXTENSIONS, sniffMediaType, type MediaType, MAX_AUDIO_BYTES } from './media';
+import { assetIdFor, EXTENSIONS, sniffAnyType, type MediaType, MAX_AUDIO_BYTES } from './media';
 import { PACKAGE_KIND, PackageError, parsePackageActivities, readPackage, type ImportResult } from './package';
 
 /**
@@ -112,7 +112,7 @@ export async function readAnyPackage(bytes: Uint8Array): Promise<ZipImportResult
   for (const m of env.data.media) {
     const data = files[m.path];
     if (!data) throw new PackageError(`The package is missing a media file (${m.path}).`);
-    const mime = sniffMediaType(data);
+    const mime = sniffAnyType(data);
     if (!mime || data.byteLength > MAX_AUDIO_BYTES) throw new PackageError(`Media file ${m.path} is not an allowed type.`);
     if ((await assetIdFor(data)) !== m.id) throw new PackageError(`Media file ${m.path} does not match its checksum.`);
     assets.push({ id: m.id, mime, bytes: data });

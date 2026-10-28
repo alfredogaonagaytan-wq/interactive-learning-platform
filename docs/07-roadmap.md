@@ -50,9 +50,21 @@ Phases set the order of work; they do not reduce the final scope. "Done" means i
 
 **Device notes:** recording was tested in Chromium only (simulated microphone). Safari/iOS records MP4/AAC; this must be checked on a real iPhone/iPad. Device voices for the “Listen” button differ by device and may be missing on some Chromebooks.
 
-## Phase 4 — Disciplinary literacy
-Reading viewer with **byte-for-byte preserved source** (upload stored separately; extracted text must be teacher-approved before publish; hash of source recorded), highlights/annotations anchored to paragraph + offset, configurable observation symbols, Cornell notes + summary, paragraph prompts, CER/TCTAC/custom frameworks, rubrics, success criteria.
-**Accept when:** source-integrity test proves the displayed text equals the approved source; annotations survive reload/offline; rubric scores flow into reports as teacher-assessed.
+## Phase 4 — Disciplinary literacy ✅
+| Acceptance criterion | Evidence |
+|---|---|
+| Reading import without AI: paste (rich or plain), .txt, .html, .docx (mammoth), .pdf (pdf.js, page markers kept), scanned page images. Text is copied character for character; HTML is sanitised (DOMPurify), external images never fetched | `phase4.test.tsx` (HTML/.docx), e2e (real PDF) |
+| Original file stored separately (content-addressed asset) and openable for comparison — never rendered as HTML | ReadingEditor; `media` sniffing tests |
+| Teacher approval required before publishing; any change invalidates it (SHA-256 over exactly what students see) | core `phase4.test.ts`, `phase4.test.tsx`, e2e |
+| Source-text integrity: rendered text equals stored text, including whitespace, symbols and line breaks, with and without highlights | `phase4.test.tsx`, e2e |
+| Preserved structure: headings, numbered paragraphs (toggle per paragraph), quotations, lists, tables with captions, figures with captions, page breaks, bold/italic/underline/super/subscript | core + component tests |
+| Annotation by selecting text (mouse/touch) **or** an accessible form (paragraph + exact words); configurable observation symbols (code + colour, never colour alone), presets for Science (CER) and ELA (argument/Toulmin) | `phase4.test.tsx`, e2e (real mouse selection, phone) |
+| Paragraph questions, Cornell notes (cues, notes, summary), observation list with notes | component tests |
+| Writing frameworks: CER, TCTAC, Toulmin, custom; sentence starters; insert cited evidence from notes; deterministic checks (words, ¶ citations, required terms) shown separately from teacher-assessed quality; success criteria; rubric with optional student self-rating | core + component tests |
+| Stand-alone structured writing item (CER after a lab etc.) | core tests |
+| Schema v4 migration | core |
+
+**Not done / limits:** PDF text extraction can mis-order multi-column layouts and keeps headers/footers — the teacher reviews and edits before approving (the original PDF is kept for students to open). Scanned images are not OCR'd (no AI/OCR by design; the teacher pastes text if students must annotate it). Teacher rubric scoring of submissions arrives with Phase 6 review tools. The Flint reference pages were not reachable, so the layout follows the spec rather than those examples.
 
 ## Phase 5 — Google integration
 GIS sign-in, `drive.file` folder trees, roster Sheet, broker template (Apps Script) + deploy guide, enrollment binding by `sub`, assignment links, student Drive save + broker submission, receipts, sync queue with retry/backoff, conflict detection, duplicate/revision handling.

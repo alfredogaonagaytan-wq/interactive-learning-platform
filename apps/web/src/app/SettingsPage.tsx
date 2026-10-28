@@ -88,7 +88,7 @@ export function SettingsPage() {
       </div>
       <div className="card">
         <h2>About</h2>
-        <p>Interactive Learning Platform · version 0.3.0 (Phase 3, local mode). Open source under the MIT licence.</p>
+        <p>Interactive Learning Platform · version 0.4.0 (Phase 4, local mode). Open source under the MIT licence.</p>
       </div>
     </section>
   );

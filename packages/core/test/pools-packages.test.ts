@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
 import {
   activityAssets, assetIdFor, checkMedia, createActivity, createZipPackage, gradeActivity, MediaError, migrateActivityJson, parseActivity, readAnyPackage,
-  selectItemIds, sniffMediaType, validateActivity, createPackage, type Activity,
+  selectItemIds, sniffMediaType, validateActivity, createPackage, CURRENT_SCHEMA_VERSION, type Activity,
 } from '../src';
 import { mc, sampleActivity, tf } from './fixtures';
 
@@ -55,7 +55,7 @@ describe('schema migration v1 -> v2', () => {
   it('upgrades a Phase 1 activity', () => {
     const v1 = { ...sampleActivity(), schemaVersion: 1 } as Record<string, unknown>;
     delete v1.pools;
-    expect(migrateActivityJson(v1)).toMatchObject({ schemaVersion: 3, pools: [] });
+    expect(migrateActivityJson(v1)).toMatchObject({ schemaVersion: CURRENT_SCHEMA_VERSION, pools: [] });
     expect(parseActivity(v1).pools).toEqual([]);
   });
 });

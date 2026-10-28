@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   builderCards, compilePatterns, createActivity, diffWords, dictationResult, expandPattern, getItemDefinition, gradeActivity, matchesCompiled,
-  migrateActivityJson, PatternError, patternProblem, transcriptMatches, validateActivity,
+  CURRENT_SCHEMA_VERSION, migrateActivityJson, PatternError, patternProblem, transcriptMatches, validateActivity,
   type DictationItem, type SentenceBuilderItem, type SentenceResponseItem, type SpeakingItem,
 } from '../src';
 import { mc } from './fixtures';
@@ -170,6 +170,6 @@ describe('audio blocks and cues', () => {
     expect(msgs).toMatch(/ends before it starts/);
   });
   it('migrates v2 activities to v3', () => {
-    expect(migrateActivityJson({ schemaVersion: 2, pools: [] })).toMatchObject({ schemaVersion: 3 });
+    expect(migrateActivityJson({ schemaVersion: 2, pools: [] })).toMatchObject({ schemaVersion: CURRENT_SCHEMA_VERSION });
   });
 });

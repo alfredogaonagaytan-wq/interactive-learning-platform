@@ -14,6 +14,8 @@ export const activityMigrations: Record<number, Migration> = {
   1: (raw) => ({ ...raw, schemaVersion: 2, pools: Array.isArray(raw.pools) ? raw.pools : [] }),
   // v2 -> v3 (Phase 3): audio cues on questions (default none) and language item types; additive.
   2: (raw) => ({ ...raw, schemaVersion: 3 }),
+  // v3 -> v4 (Phase 4): observation notes and structured writing types; additive.
+  3: (raw) => ({ ...raw, schemaVersion: 4 }),
 };
 
 export class SchemaVersionError extends Error {}

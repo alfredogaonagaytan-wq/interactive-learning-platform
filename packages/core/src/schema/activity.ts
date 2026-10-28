@@ -15,9 +15,11 @@ import { SentenceBuilderItemSchema } from '../items/sentenceBuilder';
 import { AudioItemSchema } from '../items/audio';
 import { DictationItemSchema } from '../items/dictation';
 import { SpeakingItemSchema } from '../items/speaking';
+import { ObservationNotesItemSchema } from '../items/observationNotes';
+import { WritingItemSchema } from '../items/writing';
 import { IdSchema, LanguageTagSchema, ShortTextSchema, TextSchema } from './common';
 
-export const CURRENT_SCHEMA_VERSION = 3 as const;
+export const CURRENT_SCHEMA_VERSION = 4 as const;
 
 /**
  * All item types share one discriminated union. New question types are added
@@ -40,6 +42,8 @@ export const ItemSchema = z.discriminatedUnion('type', [
   AudioItemSchema,
   DictationItemSchema,
   SpeakingItemSchema,
+  ObservationNotesItemSchema,
+  WritingItemSchema,
 ]);
 export type Item = z.infer<typeof ItemSchema>;
 export type ItemType = Item['type'];

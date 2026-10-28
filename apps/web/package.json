@@ -11,7 +11,10 @@
   },
   "dependencies": {
     "@ilp/core": "*",
+    "dompurify": "^3.4.17",
     "idb": "^8.0.3",
+    "mammoth": "^1.13.0",
+    "pdfjs-dist": "^5.7.284",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

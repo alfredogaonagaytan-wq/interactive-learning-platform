@@ -6,7 +6,7 @@ import { navigate } from '../app/router';
 import { downloadBytes, formatTime, safeFilename } from '../app/util';
 import { useConfirm } from '../ui/dialog';
 import { createActivity, ZIP_PACKAGE_EXTENSION } from '@ilp/core';
-import { sampleActivity, sampleLanguageActivity, sampleSortingActivity } from './sample';
+import { sampleActivity, sampleLanguageActivity, sampleObservationActivity, sampleSortingActivity } from './sample';
 
 export function Library() {
   const [activities, setActivities] = useState<Activity[] | null>(null);
@@ -86,6 +86,7 @@ export function Library() {
             <button type="button" className="secondary" onClick={() => create(sampleActivity())}>Open a sample activity</button>
             <button type="button" className="secondary" onClick={() => create(sampleSortingActivity())}>Open a drag-and-drop sample</button>
             <button type="button" className="secondary" onClick={() => create(sampleLanguageActivity())}>Open a grammar and speaking sample</button>
+            <button type="button" className="secondary" onClick={() => create(sampleObservationActivity())}>Open an observation notes sample</button>
           </div>
         </div>
       ) : (

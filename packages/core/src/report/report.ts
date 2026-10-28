@@ -103,6 +103,10 @@ function promptOf(item: Activity['items'][number]): string {
       return item.prompt;
     case 'speaking':
       return item.prompt;
+    case 'observation-notes':
+      return item.title || item.reading.title || 'Observation notes';
+    case 'writing':
+      return item.title || item.task.prompt || 'Writing';
     default:
       return item.prompt;
   }

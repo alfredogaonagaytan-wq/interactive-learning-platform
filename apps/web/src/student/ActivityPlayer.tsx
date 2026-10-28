@@ -224,7 +224,7 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
   const base = `${safeFilename(activity.title)}-v${version.version}-attempt${attempt.attemptNumber}`;
 
   return (
-    <article className="player" aria-labelledby="activity-title">
+    <article className={`player ${activity.items.some((i) => i.type === 'observation-notes') ? 'wide' : ''}`} aria-labelledby="activity-title">
       <header className="player-head">
         <div>
           <h1 id="activity-title">{activity.title}</h1>

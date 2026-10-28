@@ -2,6 +2,8 @@ import type { Item, ItemType } from '../schema/activity';
 import type { Activity } from '../schema/activity';
 import { DEFAULT_SETTINGS, CURRENT_SCHEMA_VERSION } from '../schema/activity';
 import { randomId } from '../ids';
+import { SYMBOL_PRESETS } from './observationNotes';
+import { FRAMEWORK_PRESETS } from '../reading/writing';
 
 /** Default content for a newly added item of each type. */
 export function createItem(type: ItemType): Item {
@@ -99,6 +101,19 @@ export function createItem(type: ItemType): Item {
       return {
         type, id, prompt: 'Listen, then record yourself saying each phrase.', language: 'en-US', targets: [{ id: randomId('seq'), text: '', focus: '', modelAudio: null }],
         ttsFallback: true, modelBeforeRecording: true, maxRecordings: null, maxSeconds: 30, submission: 'none', selfAssessment: true, speechToText: false, scoring: 'completion', points: 1, feedback: {}, skills: ['pronunciation'],
+      };
+    case 'observation-notes':
+      return {
+        type, id, title: '', instructions: 'Read the text. Mark what you notice with the symbols, answer the questions, then write your response.',
+        reading: { title: '', attribution: '', original: null, blocks: [], numbering: true, approval: null },
+        symbols: SYMBOL_PRESETS.science.symbols(), prompts: [], cornell: { enabled: true, summaryMinWords: 0 }, minAnnotations: {}, answerAllPrompts: true,
+        writing: { framework: 'cer', prompt: '', sections: FRAMEWORK_PRESETS.cer.sections(), minCitations: 1, requiredTerms: [], rubric: [], successCriteria: [], rubricSelfAssessment: false },
+        scoring: 'teacher-review', points: 10, skills: [],
+      };
+    case 'writing':
+      return {
+        type, id, audioCue: null, title: '', scoring: 'teacher-review', points: 10, skills: [],
+        task: { framework: 'cer', prompt: '', sections: FRAMEWORK_PRESETS.cer.sections(), minCitations: 0, requiredTerms: [], rubric: [], successCriteria: [], rubricSelfAssessment: false },
       };
   }
 }

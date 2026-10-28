@@ -18,7 +18,7 @@ Legend — **Native**: implement in our schema. **Reuse**: MIT H5P code/format c
 | Mark the Words | Native `mark-words` | Yes | 2 | ✅ Done |
 | Question Set (Quiz) | Native — every activity is a multi-item set | Yes | 1 | ✅ (activity = set) |
 | Summary | Native `summary` (select correct statements) | Yes | 7 | Planned (moved from 2) |
-| Essay | Native `extended-response` (rule checks + teacher review) | Partial | 4 | Planned (short answers done in Phase 3 via sentence response) |
+| Essay | Native structured writing (frameworks, rule checks + rubric/teacher review) | Partial | 4 | ✅ Done |
 | Dictation | Native `dictation` | Yes | 3 | ✅ Done |
 | Speak the Words / Set | Native `speaking` (record + optional ASR, opt-in) | Partial | 3 | ✅ Done |
 | Audio / Audio Recorder | Native media + recorder | Yes | 3 | ✅ Done |
@@ -38,8 +38,8 @@ Legend — **Native**: implement in our schema. **Reuse**: MIT H5P code/format c
 | Timeline | Native `timeline` | Yes | 7 | Planned |
 | Accordion / Column / Collage / Chart | Native layout/content blocks | Yes | 7 | Planned |
 | Agamotto / Image Juxtaposition / Image Slider | Native image blocks | Yes | 7 | Planned |
-| Documentation Tool | Native guided-writing (CER/TCTAC frameworks) | Partial | 4 | Planned |
-| Cornell Notes | Native Cornell Observation Notes module | Partial | 4 | Planned |
+| Documentation Tool | Native guided-writing (CER/TCTAC frameworks) | Partial | 4 | ✅ Done |
+| Cornell Notes | Native Cornell Observation Notes module | Partial | 4 | ✅ Done |
 | Guess the Answer / Information Wall / Personality Quiz / Questionnaire | Native | Partial | 8 | Backlog |
 | Virtual Tour (360) / Game Map / AR Scavenger | Fallback player (`h5p-standalone`, sandboxed, ungraded) | Play only | 7–8 | Backlog |
 | Iframe Embedder / KewAr Code / Twitter feed (deprecated) | Not planned (security / obsolete) | — | — | Won't do |

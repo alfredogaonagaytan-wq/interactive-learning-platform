@@ -2,7 +2,7 @@
 
 A free, open-source, local-first alternative to H5P for classrooms (EAL, ELA, Science, world languages). Teachers build interactive activities without code; students complete them on any device, online or offline. Deterministic grading, private-by-design reporting, and (from Phase 5) roster-verified submissions to Google Drive without a central student database.
 
-**Status: Phases 1–3 complete — working, tested, not production-ready.** No sign-in or Drive features yet; everything stays in the browser.
+**Status: Phases 1–4 complete — working, tested, not production-ready.** No sign-in or Drive features yet; everything stays in the browser.
 
 ## What works now
 - Teacher library: create, edit, duplicate, delete, import/export (`.ilp.zip` with images and integrity checks; `.ilp.json` still imports), two sample activities
@@ -10,6 +10,7 @@ A free, open-source, local-first alternative to H5P for classrooms (EAL, ELA, Sc
 - Every drag interaction also works by tap-to-place and keyboard; hotspots by arrow-key crosshair or an accessible list
 - Images (PNG/JPEG/GIF/WebP, checked by file signature, alt text required), question bank, random question pools
 - Language learning: grammar sentence tasks graded by teacher patterns and common-mistake rules (unexpected answers go to teacher review), sentence builder, listening clips with play limits/speeds/transcripts and linked segments, dictation, speaking practice with recording, model audio or device voice, self-assessment and opt-in speech-to-text (never presented as a pronunciation score), recording retention controls
+- Disciplinary literacy: Cornell-style Observation Notes on an exact, teacher-approved reading (paste, .docx, .pdf, .txt, .html; never AI-rewritten), highlight with configurable symbols by selection or keyboard form, paragraph questions, Cornell notes, CER / TCTAC / Toulmin / custom writing with sentence starters, cited evidence, structure checks and rubrics
 - Editor: multiple choice (single/multiple, partial credit, per-choice feedback), true/false, fill in the blanks (`[answer | alternative]` syntax, case/punctuation/accent options, equivalences such as *do not = don't*), text blocks; points, skills, hints, explanations; validation before publishing
 - Settings: attempts, feedback timing (immediate / on submit / on release), checks per item, answer reveal policy, hints, shuffling, target score
 - Immutable published versions; teacher preview (answer key) and student preview

@@ -28,6 +28,10 @@ export function itemSummary(item: Item): string {
       return cut(item.text, 'No text yet');
     case 'speaking':
       return cut(item.targets.map((t) => t.text).filter(Boolean).join(' · '), 'No phrases yet');
+    case 'observation-notes':
+      return cut(item.title || item.reading.title || (item.reading.blocks.length ? `${item.reading.blocks.length} blocks of reading` : ''), 'No reading yet');
+    case 'writing':
+      return cut(item.title || item.task.prompt || item.task.sections.map((s) => s.label).join(' / '), 'Writing task');
     case 'drag-drop':
       return cut(item.prompt || item.zones.map((z) => z.label).join(' / '), 'No zones yet');
     default:

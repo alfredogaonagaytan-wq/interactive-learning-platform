@@ -1,4 +1,4 @@
-import { createActivity, randomId, type Activity } from '@ilp/core';
+import { blocksFromPlainText, createActivity, FRAMEWORK_PRESETS, randomId, readingHash, SYMBOL_PRESETS, type Activity } from '@ilp/core';
 
 /** Fictional demo content for trying the app. Contains no student data. */
 export function sampleActivity(): Activity {
@@ -153,5 +153,53 @@ export function sampleLanguageActivity(): Activity {
       ttsFallback: true, modelBeforeRecording: true, maxRecordings: null, maxSeconds: 20, submission: 'optional', selfAssessment: true, speechToText: false, scoring: 'completion', points: 1, feedback: {}, skills: ['pronunciation'],
     },
   ];
+  return a;
+}
+
+const READING = `Ocean Acidification
+
+The ocean absorbs about a quarter of the carbon dioxide (CO₂) that people release by burning fossil fuels. This helps slow climate change, but it also changes the chemistry of seawater.
+
+When CO₂ dissolves in seawater, it forms carbonic acid. Since the start of the Industrial Revolution, the average pH of surface seawater has fallen from about 8.2 to about 8.1. Because the pH scale is logarithmic, this small change means the water is roughly 30% more acidic.
+
+Many sea creatures build shells and skeletons from calcium carbonate. In more acidic water, there are fewer carbonate ions available, so oysters, clams, corals and some plankton must use more energy to build their shells. In very acidic conditions, shells can even begin to dissolve.
+
+These changes affect whole food webs. Tiny shelled plankton called pteropods are food for fish such as salmon. If pteropods struggle to survive, the animals that eat them may struggle too.`;
+
+/** Fourth fictional sample: Observation Notes with a CER writing task (science). Reading text is written for this sample. */
+export function sampleObservationActivity(): Activity {
+  const a = createActivity('Observation notes: ocean acidification');
+  a.description = 'Read closely, mark what you notice, answer the paragraph questions, then write a CER explanation.';
+  a.subject = 'Science';
+  a.gradeBand = 'Grade 7';
+  const blocks = blocksFromPlainText(READING, () => randomId('blk'));
+  const first = blocks[0]!;
+  if (first.kind === 'paragraph') blocks[0] = { kind: 'heading', id: first.id, level: 1, runs: first.runs };
+  const reading = { title: '', attribution: 'Fictional sample text written for this demo.', original: null, blocks, numbering: true, approval: null as null | { hash: string; approvedAt: string } };
+  reading.approval = { hash: readingHash(reading), approvedAt: new Date().toISOString() };
+  const symbols = SYMBOL_PRESETS.science.symbols();
+  const ev = symbols.find((s) => s.code === 'EV')!;
+  const voc = symbols.find((s) => s.code === 'VOC')!;
+  const sections = FRAMEWORK_PRESETS.cer.sections();
+  a.items = [{
+    type: 'observation-notes', id: randomId('itm'), title: 'Ocean acidification', instructions: 'Read the text. Mark at least 3 pieces of evidence and 2 vocabulary words. Answer the questions, then write your CER.',
+    reading, symbols, minAnnotations: { [ev.id]: 3, [voc.id]: 2 },
+    prompts: [
+      { id: randomId('prm'), unitId: blocks[2]!.id, question: 'What happens to seawater when it absorbs CO₂?' },
+      { id: randomId('prm'), unitId: blocks[3]!.id, question: 'Why is it harder for oysters and corals to build shells?' },
+    ],
+    cornell: { enabled: true, summaryMinWords: 20 }, answerAllPrompts: true,
+    writing: {
+      framework: 'cer', prompt: 'How does ocean acidification affect sea creatures? Use evidence from the text.', sections, minCitations: 2, requiredTerms: ['carbonate'],
+      rubric: [
+        { id: randomId('rub'), label: 'Claim', levels: [{ id: randomId('rub'), label: 'Beginning', points: 1, descriptor: 'Claim is missing or unclear' }, { id: randomId('rub'), label: 'Secure', points: 2, descriptor: 'Clear claim that answers the question' }] },
+        { id: randomId('rub'), label: 'Evidence', levels: [{ id: randomId('rub'), label: 'Beginning', points: 1, descriptor: 'One piece of evidence, not cited' }, { id: randomId('rub'), label: 'Secure', points: 3, descriptor: 'Two or more cited pieces of evidence' }] },
+        { id: randomId('rub'), label: 'Reasoning', levels: [{ id: randomId('rub'), label: 'Beginning', points: 1, descriptor: 'Restates evidence' }, { id: randomId('rub'), label: 'Secure', points: 3, descriptor: 'Explains the science (carbonate ions, shells)' }] },
+      ],
+      successCriteria: [{ id: randomId('sec'), text: 'I can make a claim that answers the question.' }, { id: randomId('sec'), text: 'I can cite evidence with paragraph numbers.' }],
+      rubricSelfAssessment: true,
+    },
+    scoring: 'teacher-review', points: 8, skills: ['close reading', 'CER writing'],
+  }];
   return a;
 }

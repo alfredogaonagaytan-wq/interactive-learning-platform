@@ -38,7 +38,7 @@ Tests and samples use fictional content only. Phase 5 tests must use **synthetic
 | 7 | Interrupted connection | ✅ offline (local); upload interruption in Phase 5 |
 | 8 | Multi-device usability | ⚠️ emulated phone viewports on Chromium only |
 | 9–13 | Roster auth, unauthorised access, Drive files, teacher receipt, duplicate submissions | Phase 5 (local duplicate-version immutability ✅) |
-| 14 | Source-text integrity | Phase 4 (package + media integrity ✅) |
+| 14 | Source-text integrity | ✅ rendered text = stored text (with highlights), approval hash invalidation, sanitised import, PDF import e2e |
 | 15–16 | Recording permissions, pronunciation fallback | ✅ mocked permission states + real Chromium recording (simulated mic); speech-to-text consent/labelling |
 | 17 | Accessible interaction | ✅ axe (WCAG 2.2 AA tags) + keyboard tests; manual screen-reader testing pending |
 | 18 | Data deletion | ✅ |

@@ -15,6 +15,8 @@ import { dictationPlugin } from './dictation';
 import { sentenceResponsePlugin } from './sentenceResponse';
 import { sentenceBuilderPlugin } from './sentenceBuilder';
 import { speakingPlugin } from './speaking';
+import { observationNotesPlugin } from './observationNotes';
+import { writingPlugin } from './writing';
 import type { ItemPlugin } from './types';
 
 /** UI plugins keyed by item type. Adding a question type = core definition + one entry here. */
@@ -35,6 +37,8 @@ const plugins: Record<ItemType, ItemPlugin<any, any>> = {
   'sentence-response': sentenceResponsePlugin,
   'sentence-builder': sentenceBuilderPlugin,
   speaking: speakingPlugin,
+  'observation-notes': observationNotesPlugin,
+  writing: writingPlugin,
 };
 
 export function getPlugin(type: ItemType): ItemPlugin<any, any> {
@@ -48,6 +52,7 @@ export const ADD_GROUPS: Array<{ label: string; types: ItemType[] }> = [
   { label: 'Arrange and sort', types: ['matching', 'sequencing', 'drag-drop'] },
   { label: 'Grammar and writing', types: ['sentence-response', 'sentence-builder'] },
   { label: 'Listening and speaking', types: ['audio', 'dictation', 'speaking'] },
+  { label: 'Reading and writing', types: ['observation-notes', 'writing'] },
   { label: 'Content', types: ['content'] },
 ];
 export const ADDABLE_TYPES: ItemType[] = ADD_GROUPS.flatMap((g) => g.types);
