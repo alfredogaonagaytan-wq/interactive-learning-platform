@@ -74,14 +74,17 @@ export async function readPackage(text: string): Promise<ImportResult> {
   if (digest !== env.data.integrity.digest) {
     throw new PackageError('The package appears damaged or was edited outside the app (integrity check failed).');
   }
-  const activities: Activity[] = [];
-  env.data.activities.forEach((raw, i) => {
+  const activities = parsePackageActivities(env.data.activities);
+  return { activities, warnings };
+}
+
+export function parsePackageActivities(raws: unknown[]): Activity[] {
+  return raws.map((raw, i) => {
     try {
-      activities.push(ActivitySchema.parse(migrateActivityJson(raw)));
+      return ActivitySchema.parse(migrateActivityJson(raw));
     } catch (e) {
       const msg = e instanceof z.ZodError ? e.issues.slice(0, 3).map((x) => `${x.path.join('.')}: ${x.message}`).join('; ') : (e as Error).message;
       throw new PackageError(`Activity ${i + 1} is invalid: ${msg}`);
     }
   });
-  return { activities, warnings };
 }

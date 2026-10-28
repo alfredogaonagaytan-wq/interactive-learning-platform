@@ -1,5 +1,5 @@
-import { Fragment, useState } from 'react';
-import { blanksOf, parseBlankMarkup, randomId, serializeBlankMarkup, type FillBlanksItem, type FillBlanksResponse } from '@ilp/core';
+import { Fragment, useState, type ReactNode } from 'react';
+import { blanksOf, parseBlankMarkup, randomId, serializeBlankMarkup, type BlankSegment, type FillBlanksItem, type FillBlanksResponse, type Segment } from '@ilp/core';
 import { Checkbox, FeedbackFields, NumberField, Select, SkillsField, TextArea, TextField } from '../../ui/fields';
 import type { ItemPlugin } from '../types';
 
@@ -36,42 +36,58 @@ function AddEquivalence({ onAdd }: { onAdd: (forms: string[]) => void }) {
   );
 }
 
+/** Markup textarea + live list of parsed gaps. Shared by fill-blanks, drag-words and dropdown cloze. */
+export function BlankMarkupField({ segments, onChange, label, placeholder, hint, renderBlank }: {
+  segments: Segment[];
+  onChange: (s: Segment[]) => void;
+  label: string;
+  placeholder: string;
+  hint: ReactNode;
+  renderBlank?: (b: BlankSegment) => ReactNode;
+}) {
+  const [markup, setMarkup] = useState(() => serializeBlankMarkup(segments));
+  const blanks = segments.filter((s): s is BlankSegment => s.kind === 'blank');
+  return (
+    <>
+      <TextArea label={label} rows={5} mono value={markup} placeholder={placeholder} hint={hint} onChange={(t) => { setMarkup(t); onChange(parseBlankMarkup(t, segments, () => randomId('blk'))); }} />
+      <div className="blank-list" aria-live="polite">
+        <h4>{blanks.length} gap{blanks.length === 1 ? '' : 's'} found</h4>
+        {blanks.length === 0 && <p className="field-hint">No gaps yet.</p>}
+        <ol>
+          {blanks.map((b) => (
+            <li key={b.id}>
+              {renderBlank ? renderBlank(b) : <span className="accepted">{b.answers.map((a, i) => <Fragment key={i}>{i > 0 && <span className="or"> or </span>}<mark>{a}</mark></Fragment>)}</span>}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </>
+  );
+}
+
 export const fillBlanksPlugin: ItemPlugin<FillBlanksItem, FillBlanksResponse> = {
   type: 'fill-blanks',
   label: 'Fill in the blanks',
   description: 'Students type missing words. Several accepted answers per blank.',
   Editor({ item, onChange }) {
-    const [markup, setMarkup] = useState(() => serializeBlankMarkup(item.segments));
-    const blanks = blanksOf(item);
     const setBlankHint = (id: string, hint: string) =>
       onChange({ ...item, segments: item.segments.map((s) => (s.kind === 'blank' && s.id === id ? (hint ? { ...s, hint } : { kind: 'blank', id: s.id, answers: s.answers }) : s)) });
     return (
       <>
         <TextField label="Instructions" value={item.prompt} onChange={(prompt) => onChange({ ...item, prompt })} />
-        <TextArea
+        <BlankMarkupField
           label="Text with blanks"
-          rows={5}
-          mono
-          value={markup}
-          onChange={(t) => {
-            setMarkup(t);
-            onChange({ ...item, segments: parseBlankMarkup(t, item.segments, () => randomId('blk')) });
-          }}
+          segments={item.segments}
+          onChange={(segments) => onChange({ ...item, segments })}
           placeholder="Yesterday she [went] to the market and [bought | purchased] apples."
           hint={<>Put each answer in <kbd>[square brackets]</kbd>. Separate other accepted answers with <kbd>|</kbd>, e.g. <code>[went | was going]</code>.</>}
+          renderBlank={(b) => (
+            <>
+              <span className="accepted">{b.answers.map((a, i) => <Fragment key={i}>{i > 0 && <span className="or"> or </span>}<mark>{a}</mark></Fragment>)}</span>
+              <input type="text" aria-label={`Hint for blank “${b.answers[0]}”`} placeholder="Hint (optional)" value={b.hint ?? ''} onChange={(e) => setBlankHint(b.id, e.target.value)} />
+            </>
+          )}
         />
-        <div className="blank-list" aria-live="polite">
-          <h4>{blanks.length} blank{blanks.length === 1 ? '' : 's'} found</h4>
-          {blanks.length === 0 && <p className="field-hint">No blanks yet.</p>}
-          <ol>
-            {blanks.map((b) => (
-              <li key={b.id}>
-                <span className="accepted">{b.answers.map((a, i) => <Fragment key={i}>{i > 0 && <span className="or"> or </span>}<mark>{a}</mark></Fragment>)}</span>
-                <input type="text" aria-label={`Hint for blank “${b.answers[0]}”`} placeholder="Hint (optional)" value={b.hint ?? ''} onChange={(e) => setBlankHint(b.id, e.target.value)} />
-              </li>
-            ))}
-          </ol>
-        </div>
         <fieldset className="subfieldset">
           <legend>Answer matching</legend>
           <Checkbox label="Capitalization must match" checked={item.match.caseSensitive} onChange={(caseSensitive) => onChange({ ...item, match: { ...item.match, caseSensitive } })} />
@@ -89,7 +105,7 @@ export const fillBlanksPlugin: ItemPlugin<FillBlanksItem, FillBlanksResponse> = 
       </>
     );
   },
-  Player({ item, response, onChange, disabled, result, showKey, label }) {
+  Player({ item, response, onChange, disabled, result, showKey, label, hintsShown }) {
     const blanks = blanksOf(item);
     const size = Math.min(30, Math.max(8, ...blanks.flatMap((b) => b.answers.map((a) => a.length + 2))));
     const parts = new Map(result?.parts.map((p) => [p.partId, p]));
@@ -120,6 +136,7 @@ export const fillBlanksPlugin: ItemPlugin<FillBlanksItem, FillBlanksResponse> = 
                   onChange={(e) => onChange({ values: { ...response.values, [s.id]: e.target.value } })}
                 />
                 {part && <span className="sr-only">{part.correct ? 'correct' : 'incorrect'}</span>}
+                {hintsShown && s.hint && <span className="gap-hint">({s.hint})</span>}
                 {showKey && <span className="badge key">{s.answers.join(' / ')}</span>}
               </span>
             );

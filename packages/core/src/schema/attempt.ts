@@ -18,6 +18,8 @@ export const AttemptSchema = z.object({
   assignmentId: IdSchema.nullable().default(null),
   attemptNumber: z.number().int().min(1),
   status: z.enum(['in-progress', 'submitted']),
+  /** Item ids shown in this attempt, in order (question pools / shuffling). null = all items in authored order. */
+  presentedItemIds: z.array(IdSchema).nullable().default(null),
   responses: z.record(z.string(), z.unknown()).default({}),
   /** How many times "Check" was used per item (immediate feedback mode). */
   checks: z.record(z.string(), z.number().int().min(0)).default({}),

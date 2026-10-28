@@ -28,12 +28,12 @@ export function StudentHome() {
         <h1 id="sh-h">My activities</h1>
         <div className="actions">
           <button type="button" className="secondary" onClick={() => fileRef.current?.click()}>Open activity file…</button>
-          <input ref={fileRef} type="file" accept=".json,application/json" hidden aria-label="Open activity file" onChange={async (e) => {
+          <input ref={fileRef} type="file" accept=".zip,.json,application/zip,application/json" hidden aria-label="Open activity file" onChange={async (e) => {
             const f = e.target.files?.[0];
             e.target.value = '';
             if (!f) return;
             try {
-              const v = await importForStudent(await f.text());
+              const v = await importForStudent(new Uint8Array(await f.arrayBuffer()));
               setMessage({ kind: 'ok', text: `Added ${v.length} activit${v.length === 1 ? 'y' : 'ies'}.` });
               await refresh();
             } catch (err) {
@@ -54,7 +54,7 @@ export function StudentHome() {
           {rows.map(({ version, attempts }) => {
             const inProgress = attempts.find((a) => a.status === 'in-progress');
             const last = attempts.filter((a) => a.status === 'submitted').at(-1);
-            const res = last ? gradeActivity(version.activity, last.responses as never) : null;
+            const res = last ? gradeActivity(version.activity, last.responses as never, last.presentedItemIds ?? null) : null;
             const showScore = last && version.activity.settings.feedbackTiming !== 'after-release';
             return (
               <li key={version.activityId} className="card activity-row">

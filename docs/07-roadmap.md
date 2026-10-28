@@ -17,9 +17,21 @@ Phases set the order of work; they do not reduce the final scope. "Done" means i
 
 **Known gaps in Phase 1:** no media upload yet; per-blank hints are only in the accessible name/tooltip (not visible on touch devices); reports are JSON/CSV + browser print (no generated PDF); no real Safari/iOS device testing yet.
 
-## Phase 2 — Core interactive activities
-Drag the words, drag-and-drop (text/image zones), matching, sequencing/paragraph sorting, mark the words, dropdown cloze, single-choice set, summary, hotspot; media (image/audio) in packages (zip container).
-**Accept when:** each type has editor + player + grading + validation tests; every drag interaction has a tested keyboard and tap-to-place alternative; zip packages round-trip with media; question bank + random draw from pools.
+## Phase 2 — Core interactive activities ✅
+| Acceptance criterion | Evidence |
+|---|---|
+| New types with editor + player + deterministic grading + validation: drag the words, dropdown cloze, matching (text/images), sequencing & paragraph sorting, mark the words, drag-and-drop (category boxes or zones on an image), find the hotspot | `phase2-items.test.ts` (core), `phase2.test.tsx` (UI) |
+| Every drag interaction has a tested keyboard path and tap-to-place path; real pointer dragging tested in a browser | `phase2.test.tsx` (keyboard/tap), `e2e/phase2.spec.ts` (mouse drag on desktop, taps on emulated phones) |
+| Hotspots usable without a mouse: arrow-key crosshair + optional “choose from a list” | `phase2.test.tsx` |
+| Images: upload with signature-based type check (no SVG), content-addressed storage, required alt text unless decorative | `pools-packages.test.ts`, e2e upload test |
+| Zip packages (`.ilp.zip`) round-trip activities with media; tampered media and missing manifests rejected; legacy `.ilp.json` still imports | `pools-packages.test.ts`, `phase2-storage.test.tsx`, e2e export→import |
+| Question bank (save, search, insert copies) and question pools (random draw, stable per attempt, graded only on what was shown) | `pools-packages.test.ts`, `phase2.test.tsx`, `phase2-storage.test.tsx` |
+| Schema v1 → v2 migration for stored activities, published versions and the Phase 1 IndexedDB | `pools-packages.test.ts`, `phase2-storage.test.tsx` |
+| No serious/critical axe violations on the new editors and players (incl. “card picked up” and “checked” states) | `e2e/phase2.spec.ts` |
+
+**Fixed during Phase 2:** the save indicator could re-wrap the activity header and shift content mid-drag; the update banner pushed content down (now a floating toast); keyboard focus could scroll under the sticky editor toolbar; per-gap hints are now visible after “Show hint”.
+
+**Known gaps:** Single Choice Set and Summary moved to Phase 7 (each is a thin variant of existing types); images in packages are not resized/compressed (5 MB cap per image); unused images are not yet garbage-collected from device storage; no real iPhone/iPad/Android/Chromebook testing yet (emulated viewports only); drag-and-drop zone positions on images are authored in % and may need adjustment for very tall images on phones.
 
 ## Phase 3 — Language learning
 Grammar engine (teacher-defined rules: accepted patterns, error-type tagging, separate meaning vs. accuracy scores, "needs review" fallback), sentence reconstruction, transformation, error correction; listening (multiple clips, speed, max plays, timestamps, transcripts); dictation; recording (MediaRecorder, permission flow, retention); pronunciation tiers A/B/C with feature detection.

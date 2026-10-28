@@ -1,42 +1,23 @@
 import type { Activity, Item, ItemType } from '../schema/activity';
 import { MISMATCH_MESSAGES, matchAnswer } from '../grading/normalize';
-import { roundScore, type ItemResult, type PartResult, type ValidationIssue } from '../grading/types';
+import { roundScore, type PartResult, type ValidationIssue } from '../grading/types';
 import { blanksOf, type FillBlanksItem, type FillBlanksResponse } from './fillBlanks';
 import type { MultipleChoiceItem, MultipleChoiceResponse } from './multipleChoice';
 import type { TrueFalseItem, TrueFalseResponse } from './trueFalse';
 import type { ContentItem } from './content';
+import { outcome, type ItemDefinition } from './definition';
+import { dragWordsDefinition } from './dragWords';
+import { dropdownClozeDefinition } from './dropdownCloze';
+import { matchingDefinition } from './matching';
+import { sequencingDefinition } from './sequencing';
+import { markWordsDefinition } from './markWords';
+import { dragDropDefinition } from './dragDrop';
+import { hotspotDefinition } from './hotspot';
 
-export type ItemResponse = MultipleChoiceResponse | TrueFalseResponse | FillBlanksResponse | Record<string, never>;
+export type { ItemDefinition, GradeContext } from './definition';
 
-export interface GradeContext {
-  language: string;
-}
-
-/**
- * The framework-independent half of a question-type plugin. The UI half
- * (editor + player) lives in apps/web/src/plugins and is keyed by the same type.
- */
-export interface ItemDefinition<I extends Item = Item, R = ItemResponse> {
-  type: I['type'];
-  label: string;
-  scorable: boolean;
-  emptyResponse(item: I): R;
-  isAnswered(item: I, response: R | undefined): boolean;
-  grade(item: I, response: R | undefined, ctx: GradeContext): ItemResult;
-  validate(item: I): ValidationIssue[];
-  /** Human-readable correct answers, for reports when disclosure is allowed. */
-  correctAnswers(item: I): string[];
-  /** Human-readable student response, for reports. */
-  describeResponse(item: I, response: R | undefined): string;
-  maxScore(item: I): number;
-}
-
-function outcome(score: number, max: number, answered: boolean): ItemResult['status'] {
-  if (!answered) return 'unanswered';
-  if (score >= max) return 'correct';
-  if (score > 0) return 'partial';
-  return 'incorrect';
-}
+/** Responses are plain JSON objects; each item type defines its own shape. */
+export type ItemResponse = MultipleChoiceResponse | TrueFalseResponse | FillBlanksResponse | Record<string, unknown>;
 
 const content: ItemDefinition<ContentItem, Record<string, never>> = {
   type: 'content',
@@ -177,6 +158,13 @@ const registry: { [K in ItemType]: ItemDefinition<Extract<Item, { type: K }>, an
   'multiple-choice': multipleChoice,
   'true-false': trueFalse,
   'fill-blanks': fillBlanks,
+  'drag-words': dragWordsDefinition,
+  'dropdown-cloze': dropdownClozeDefinition,
+  matching: matchingDefinition,
+  sequencing: sequencingDefinition,
+  'mark-words': markWordsDefinition,
+  'drag-drop': dragDropDefinition,
+  hotspot: hotspotDefinition,
 };
 
 export function getItemDefinition<T extends ItemType>(type: T): ItemDefinition<Extract<Item, { type: T }>, any> {
@@ -199,5 +187,23 @@ export function validateActivity(activity: Activity): ValidationIssue[] {
     ids.add(item.id);
     issues.push(...getItemDefinition(item.type).validate(item as never));
   }
+  const pooled = new Set<string>();
+  for (const pool of activity.pools) {
+    const members = pool.itemIds.filter((id) => ids.has(id));
+    if (!pool.name.trim()) issues.push({ path: `pools.${pool.id}`, message: 'A question pool has no name.' });
+    if (members.length === 0) issues.push({ path: `pools.${pool.id}`, message: `Pool “${pool.name}” has no questions.` });
+    else if (pool.draw > members.length) issues.push({ path: `pools.${pool.id}`, message: `Pool “${pool.name}” draws ${pool.draw} but has only ${members.length} question${members.length === 1 ? '' : 's'}.` });
+    for (const id of members) {
+      if (pooled.has(id)) issues.push({ itemId: id, path: 'pools', message: 'A question is in more than one pool.' });
+      pooled.add(id);
+    }
+  }
   return issues;
+}
+
+/** All asset ids referenced by an activity (for packaging and storage clean-up). */
+export function activityAssets(activity: Activity): string[] {
+  const out = new Set<string>();
+  for (const item of activity.items) for (const id of getItemDefinition(item.type).assets?.(item as never) ?? []) out.add(id);
+  return [...out];
 }

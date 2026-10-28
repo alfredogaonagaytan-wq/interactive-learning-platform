@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Activity, Attempt, PublishedVersion } from '@ilp/core';
+import { parseActivity, upgradePublishedVersion, type Activity, type Attempt, type Item, type MediaType, type PublishedVersion } from '@ilp/core';
 import { journalClearAll, journalClearFor } from './journal';
 
 /**
@@ -12,10 +12,31 @@ interface IlpDB extends DBSchema {
   versions: { key: [string, number]; value: PublishedVersion; indexes: { byActivity: string } };
   attempts: { key: string; value: Attempt; indexes: { byActivity: string; byActivityVersion: [string, number] } };
   meta: { key: string; value: { key: string; value: unknown } };
+  /** Content-addressed media (images now, audio in Phase 3). Immutable. */
+  assets: { key: string; value: StoredAsset };
+  /** Teacher's reusable question bank. */
+  bank: { key: string; value: BankEntry };
+}
+
+export interface StoredAsset {
+  id: string;
+  mime: MediaType;
+  bytes: Uint8Array;
+  name: string;
+  addedAt: string;
+}
+
+export interface BankEntry {
+  id: string;
+  item: Item;
+  /** Free-text tags, e.g. topic or unit. */
+  tags: string[];
+  sourceActivityTitle: string;
+  savedAt: string;
 }
 
 export const DB_NAME = 'ilp';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let dbPromise: Promise<IDBPDatabase<IlpDB>> | null = null;
 
 export function db(): Promise<IDBPDatabase<IlpDB>> {
@@ -29,6 +50,10 @@ export function db(): Promise<IDBPDatabase<IlpDB>> {
         attempts.createIndex('byActivity', 'activityId');
         attempts.createIndex('byActivityVersion', ['activityId', 'version']);
         database.createObjectStore('meta', { keyPath: 'key' });
+      }
+      if (oldVersion < 2) {
+        database.createObjectStore('assets', { keyPath: 'id' });
+        database.createObjectStore('bank', { keyPath: 'id' });
       }
     },
     blocking() {
@@ -48,11 +73,20 @@ export async function closeDb(): Promise<void> {
 
 // ---- Activities (teacher drafts) ----
 export async function listActivities(): Promise<Activity[]> {
-  const all = await (await db()).getAll('activities');
+  const all = (await (await db()).getAll('activities')).map(upgrade);
   return all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 export async function getActivity(id: string): Promise<Activity | undefined> {
-  return (await db()).get('activities', id);
+  const a = await (await db()).get('activities', id);
+  return a && upgrade(a);
+}
+
+/** Stored documents may predate the current schema; upgrade them in memory on read. */
+function upgrade(a: Activity): Activity {
+  return a.schemaVersion === 2 ? a : parseActivity(a);
+}
+function upgradeVersion(v: PublishedVersion): PublishedVersion {
+  return v.activity.schemaVersion === 2 ? v : upgradePublishedVersion(v);
 }
 export async function putActivity(a: Activity): Promise<void> {
   await (await db()).put('activities', a);
@@ -70,16 +104,17 @@ export async function putVersion(v: PublishedVersion): Promise<void> {
   await tx.done;
 }
 export async function getVersion(activityId: string, version: number): Promise<PublishedVersion | undefined> {
-  return (await db()).get('versions', [activityId, version]);
+  const v = await (await db()).get('versions', [activityId, version]);
+  return v && upgradeVersion(v);
 }
 export async function listVersions(activityId: string): Promise<PublishedVersion[]> {
-  const all = await (await db()).getAllFromIndex('versions', 'byActivity', activityId);
+  const all = (await (await db()).getAllFromIndex('versions', 'byActivity', activityId)).map(upgradeVersion);
   return all.sort((a, b) => a.version - b.version);
 }
 /** Latest published version of every activity available on this device. */
 export async function listLatestVersions(): Promise<PublishedVersion[]> {
   const latest = new Map<string, PublishedVersion>();
-  for (const v of await (await db()).getAll('versions')) {
+  for (const v of (await (await db()).getAll('versions')).map(upgradeVersion)) {
     const cur = latest.get(v.activityId);
     if (!cur || v.version > cur.version) latest.set(v.activityId, v);
   }
@@ -142,11 +177,33 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
 /** Erase everything this app stored on this device (activities, versions, work, preferences). */
 export async function clearAllData(): Promise<void> {
   const d = await db();
-  const tx = d.transaction(['activities', 'versions', 'attempts', 'meta'], 'readwrite');
-  await Promise.all([tx.objectStore('activities').clear(), tx.objectStore('versions').clear(), tx.objectStore('attempts').clear(), tx.objectStore('meta').clear(), tx.done]);
+  const stores = ['activities', 'versions', 'attempts', 'meta', 'assets', 'bank'] as const;
+  const tx = d.transaction([...stores], 'readwrite');
+  await Promise.all([...stores.map((s) => tx.objectStore(s).clear()), tx.done]);
   journalClearAll();
 }
 
 export async function countStudentAttempts(activityId: string): Promise<number> {
   return (await listAttempts(activityId)).filter((a) => a.mode === 'student').length;
+}
+
+// ---- Assets ----
+export async function putAsset(a: StoredAsset): Promise<void> {
+  const d = await db();
+  // Content-addressed: an existing asset with the same id is identical.
+  if (!(await d.getKey('assets', a.id))) await d.put('assets', a);
+}
+export async function getAsset(id: string): Promise<StoredAsset | undefined> {
+  return (await db()).get('assets', id);
+}
+
+// ---- Question bank ----
+export async function putBankEntry(e: BankEntry): Promise<void> {
+  await (await db()).put('bank', e);
+}
+export async function listBank(): Promise<BankEntry[]> {
+  return (await (await db()).getAll('bank')).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+export async function deleteBankEntry(id: string): Promise<void> {
+  await (await db()).delete('bank', id);
 }

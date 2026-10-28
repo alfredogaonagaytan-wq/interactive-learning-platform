@@ -3,9 +3,16 @@ import { ContentItemSchema } from '../items/content';
 import { FillBlanksItemSchema } from '../items/fillBlanks';
 import { MultipleChoiceItemSchema } from '../items/multipleChoice';
 import { TrueFalseItemSchema } from '../items/trueFalse';
+import { DragWordsItemSchema } from '../items/dragWords';
+import { DropdownClozeItemSchema } from '../items/dropdownCloze';
+import { MatchingItemSchema } from '../items/matching';
+import { SequencingItemSchema } from '../items/sequencing';
+import { MarkWordsItemSchema } from '../items/markWords';
+import { DragDropItemSchema } from '../items/dragDrop';
+import { HotspotItemSchema } from '../items/hotspot';
 import { IdSchema, LanguageTagSchema, ShortTextSchema, TextSchema } from './common';
 
-export const CURRENT_SCHEMA_VERSION = 1 as const;
+export const CURRENT_SCHEMA_VERSION = 2 as const;
 
 /**
  * All item types share one discriminated union. New question types are added
@@ -16,6 +23,13 @@ export const ItemSchema = z.discriminatedUnion('type', [
   MultipleChoiceItemSchema,
   TrueFalseItemSchema,
   FillBlanksItemSchema,
+  DragWordsItemSchema,
+  DropdownClozeItemSchema,
+  MatchingItemSchema,
+  SequencingItemSchema,
+  MarkWordsItemSchema,
+  DragDropItemSchema,
+  HotspotItemSchema,
 ]);
 export type Item = z.infer<typeof ItemSchema>;
 export type ItemType = Item['type'];
@@ -41,6 +55,18 @@ export const ActivitySettingsSchema = z.object({
 export type ActivitySettings = z.infer<typeof ActivitySettingsSchema>;
 export const DEFAULT_SETTINGS: ActivitySettings = ActivitySettingsSchema.parse({});
 
+/**
+ * Question pool: each attempt presents `draw` randomly chosen questions from
+ * `itemIds` (seeded by the attempt id, so reloads show the same questions).
+ */
+export const PoolSchema = z.object({
+  id: IdSchema,
+  name: ShortTextSchema,
+  draw: z.number().int().min(1).max(500),
+  itemIds: z.array(IdSchema).max(500),
+});
+export type Pool = z.infer<typeof PoolSchema>;
+
 export const ActivitySchema = z.object({
   kind: z.literal('ilp.activity'),
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
@@ -51,6 +77,7 @@ export const ActivitySchema = z.object({
   subject: z.string().max(120).default(''),
   gradeBand: z.string().max(60).default(''),
   items: z.array(ItemSchema).max(500),
+  pools: z.array(PoolSchema).max(50).default([]),
   settings: ActivitySettingsSchema.default(DEFAULT_SETTINGS),
   /** Increments on every saved edit of the draft. */
   revision: z.number().int().min(0).default(0),

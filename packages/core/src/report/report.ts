@@ -5,6 +5,7 @@ import { gradeActivity } from '../grading/engine';
 import { MISMATCH_MESSAGES } from '../grading/normalize';
 import type { ItemStatus } from '../grading/types';
 import { randomId } from '../ids';
+import { presentedItems } from '../selection';
 
 export interface ReportItem {
   index: number;
@@ -87,7 +88,11 @@ function promptOf(item: Activity['items'][number]): string {
     case 'content':
       return item.title || item.body.slice(0, 80);
     case 'fill-blanks':
+    case 'drag-words':
+    case 'dropdown-cloze':
       return item.prompt || item.segments.map((s) => (s.kind === 'text' ? s.text : '____')).join('');
+    case 'mark-words':
+      return item.prompt || 'Mark the words';
     default:
       return item.prompt;
   }
@@ -95,9 +100,10 @@ function promptOf(item: Activity['items'][number]): string {
 
 export function buildReport(activity: Activity, attempt: Attempt, options: ReportOptions): Report {
   const responses = attempt.responses as Record<string, ItemResponse>;
-  const result = gradeActivity(activity, responses);
+  const shown = presentedItems(activity, attempt.presentedItemIds ?? null);
+  const result = gradeActivity(activity, responses, attempt.presentedItemIds ?? null);
   const items: ReportItem[] = [];
-  activity.items.forEach((item, index) => {
+  shown.forEach((item, index) => {
     const def = getItemDefinition(item.type);
     if (!def.scorable) return;
     const r = result.items[index]!;

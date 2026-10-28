@@ -7,9 +7,11 @@ import {
 import { importAsDrafts, importForStudent, publish, saveDraft } from '../src/storage/library';
 import { published, testActivity } from './helpers';
 
+const enc = (s: string) => new TextEncoder().encode(s);
+
 function attempt(activityId: string, mode: Attempt['mode'], version = 1): Attempt {
   const now = new Date().toISOString();
-  return { kind: 'ilp.attempt', schemaVersion: 1, id: randomId('att'), activityId, version, contentHash: 'sha256:x', mode, assignmentId: null, attemptNumber: 1, status: 'in-progress', responses: {}, checks: {}, hintsUsed: {}, startedAt: now, updatedAt: now, submittedAt: null, sync: 'local-only' };
+  return { kind: 'ilp.attempt', schemaVersion: 1, id: randomId('att'), activityId, version, contentHash: 'sha256:x', mode, assignmentId: null, attemptNumber: 1, status: 'in-progress', presentedItemIds: null, responses: {}, checks: {}, hintsUsed: {}, startedAt: now, updatedAt: now, submittedAt: null, sync: 'local-only' };
 }
 
 describe('local storage', () => {
@@ -67,7 +69,7 @@ describe('import', () => {
   it('teacher import never overwrites an existing activity', async () => {
     const a = testActivity();
     await putActivity(a);
-    const text = JSON.stringify(await createPackage([a]));
+    const text = enc(JSON.stringify(await createPackage([a])));
     const [copy] = await importAsDrafts(text, () => 'act_newcopy');
     expect(copy?.id).toBe('act_newcopy');
     expect(copy?.title).toMatch(/imported/);
@@ -76,11 +78,11 @@ describe('import', () => {
 
   it('student import is idempotent and versions changed content', async () => {
     const a = testActivity();
-    const text = JSON.stringify(await createPackage([a]));
+    const text = enc(JSON.stringify(await createPackage([a])));
     const [first] = await importForStudent(text);
     const [again] = await importForStudent(text);
     expect(again?.version).toBe(first?.version);
-    const changed = JSON.stringify(await createPackage([{ ...a, title: 'Revised' }]));
+    const changed = enc(JSON.stringify(await createPackage([{ ...a, title: 'Revised' }])));
     const [second] = await importForStudent(changed);
     expect(second?.version).toBe(2);
     expect(await listActivities()).toEqual([]); // not added to the teacher library
@@ -88,7 +90,7 @@ describe('import', () => {
 
   it('student import rejects activities that are not ready', async () => {
     const a = { ...testActivity(), items: [] };
-    await expect(importForStudent(JSON.stringify(await createPackage([a])))).rejects.toThrow();
+    await expect(importForStudent(enc(JSON.stringify(await createPackage([a]))))).rejects.toThrow();
   });
 
   it('publishActivity output matches what storage expects', async () => {

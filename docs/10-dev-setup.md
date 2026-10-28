@@ -31,14 +31,14 @@ Tests and samples use fictional content only. Phase 5 tests must use **synthetic
 |---|---|---|
 | 1 | Correct/incorrect grammar answers | ✅ core grading tests (verb forms, capitalization) |
 | 2 | Multiple acceptable answers | ✅ |
-| 3 | Drag-and-drop | Phase 2 (reordering via buttons tested now) |
-| 4 | Keyboard interactions | ✅ player + editor tests |
+| 3 | Drag-and-drop | ✅ pointer drag (e2e desktop), tap-to-place (e2e phones), keyboard (component tests) |
+| 4 | Keyboard interactions | ✅ player + editor tests, incl. every Phase 2 type and the hotspot crosshair |
 | 5 | Sentence reconstruction | Phase 3 |
 | 6 | Autosave & reload | ✅ unit + e2e + journal |
 | 7 | Interrupted connection | ✅ offline (local); upload interruption in Phase 5 |
 | 8 | Multi-device usability | ⚠️ emulated phone viewports on Chromium only |
 | 9–13 | Roster auth, unauthorised access, Drive files, teacher receipt, duplicate submissions | Phase 5 (local duplicate-version immutability ✅) |
-| 14 | Source-text integrity | Phase 4 (package integrity ✅) |
+| 14 | Source-text integrity | Phase 4 (package + media integrity ✅) |
 | 15–16 | Recording permissions, pronunciation fallback | Phase 3 |
 | 17 | Accessible interaction | ✅ axe (WCAG 2.2 AA tags) + keyboard tests; manual screen-reader testing pending |
 | 18 | Data deletion | ✅ |

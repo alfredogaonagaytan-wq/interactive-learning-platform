@@ -1,5 +1,5 @@
-import { contentHash, createPackage, publishActivity, readPackage, type Activity, type PublishedVersion } from '@ilp/core';
-import { getActivity, listVersions, putActivity, putVersion } from './db';
+import { contentHash, createZipPackage, publishActivity, readAnyPackage, type Activity, type PublishedVersion } from '@ilp/core';
+import { getActivity, getAsset, listVersions, putActivity, putAsset, putVersion } from './db';
 
 /** Save a draft edit: bumps revision so "unpublished changes" can be detected. */
 export async function saveDraft(a: Activity): Promise<Activity> {
@@ -15,8 +15,18 @@ export async function publish(a: Activity): Promise<{ draft: Activity; version: 
   return { draft, version };
 }
 
-export async function exportPackage(activities: Activity[]): Promise<string> {
-  return JSON.stringify(await createPackage(activities), null, 2);
+/** Export as a zip package (activities + their images). */
+export async function exportPackage(activities: Activity[]): Promise<Uint8Array> {
+  return createZipPackage(activities, async (id) => {
+    const a = await getAsset(id);
+    return a && { mime: a.mime, bytes: a.bytes };
+  });
+}
+
+async function readAndStoreMedia(bytes: Uint8Array): Promise<Activity[]> {
+  const { activities, assets } = await readAnyPackage(bytes);
+  for (const a of assets) await putAsset({ id: a.id, mime: a.mime, bytes: a.bytes, name: a.id, addedAt: new Date().toISOString() });
+  return activities;
 }
 
 /**
@@ -24,8 +34,8 @@ export async function exportPackage(activities: Activity[]): Promise<string> {
  * same id already exists locally, the import becomes a separate copy (new id)
  * rather than overwriting the teacher's work.
  */
-export async function importAsDrafts(text: string, newId: () => string): Promise<Activity[]> {
-  const { activities } = await readPackage(text);
+export async function importAsDrafts(bytes: Uint8Array, newId: () => string): Promise<Activity[]> {
+  const activities = await readAndStoreMedia(bytes);
   const out: Activity[] = [];
   for (const incoming of activities) {
     const exists = await getActivity(incoming.id);
@@ -41,8 +51,8 @@ export async function importAsDrafts(text: string, newId: () => string): Promise
  * adding them to the teacher library. Re-importing identical content is a
  * no-op; changed content becomes the next version.
  */
-export async function importForStudent(text: string): Promise<PublishedVersion[]> {
-  const { activities } = await readPackage(text);
+export async function importForStudent(bytes: Uint8Array): Promise<PublishedVersion[]> {
+  const activities = await readAndStoreMedia(bytes);
   const out: PublishedVersion[] = [];
   for (const a of activities) {
     const existing = await listVersions(a.id);

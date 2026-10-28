@@ -38,3 +38,15 @@ export type MatchOptions = z.infer<typeof MatchOptionsSchema>;
 export const SkillTagsSchema = z.array(z.string().min(1).max(80)).max(20).default([]);
 
 export const PointsSchema = z.number().min(0).max(1000);
+
+/**
+ * Reference to an image in the local asset store / package media folder.
+ * Asset ids are content-addressed (sha256), so a reference never silently
+ * changes meaning. Alt text is required unless the teacher marks it decorative.
+ */
+export const ImageRefSchema = z.object({
+  assetId: IdSchema,
+  alt: ShortTextSchema.default(''),
+  decorative: z.boolean().default(false),
+});
+export type ImageRef = z.infer<typeof ImageRefSchema>;

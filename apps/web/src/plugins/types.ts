@@ -21,6 +21,8 @@ export interface PlayerProps<I extends Item, R> {
   seed: string;
   /** Accessible name prefix, e.g. "Question 3". */
   label: string;
+  /** Student revealed the hint for this item (shows per-gap hints, etc.). */
+  hintsShown?: boolean;
 }
 
 /** UI half of a question-type plugin. The grading half lives in @ilp/core. */

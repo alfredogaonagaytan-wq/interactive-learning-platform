@@ -3,10 +3,10 @@ import { duplicateActivity, hasUnpublishedChanges, randomId, type Activity } fro
 import { countStudentAttempts, deleteActivity, listActivities, putActivity } from '../storage/db';
 import { exportPackage, importAsDrafts } from '../storage/library';
 import { navigate } from '../app/router';
-import { downloadText, formatTime, safeFilename } from '../app/util';
+import { downloadBytes, formatTime, safeFilename } from '../app/util';
 import { useConfirm } from '../ui/dialog';
-import { createActivity, PACKAGE_EXTENSION } from '@ilp/core';
-import { sampleActivity } from './sample';
+import { createActivity, ZIP_PACKAGE_EXTENSION } from '@ilp/core';
+import { sampleActivity, sampleSortingActivity } from './sample';
 
 export function Library() {
   const [activities, setActivities] = useState<Activity[] | null>(null);
@@ -43,9 +43,17 @@ export function Library() {
     await refresh();
   };
 
+  const safeExport = async (list: Activity[], filename: string) => {
+    try {
+      downloadBytes(filename, await exportPackage(list));
+    } catch (e) {
+      setMessage({ kind: 'error', text: `Could not export: ${(e as Error).message}` });
+    }
+  };
+
   const onImport = async (file: File) => {
     try {
-      const imported = await importAsDrafts(await file.text(), () => randomId('act'));
+      const imported = await importAsDrafts(new Uint8Array(await file.arrayBuffer()), () => randomId('act'));
       setMessage({ kind: 'ok', text: `Imported ${imported.length} activit${imported.length === 1 ? 'y' : 'ies'} as drafts.` });
       await refresh();
     } catch (e) {
@@ -61,9 +69,9 @@ export function Library() {
           <button type="button" className="primary" onClick={() => create(createActivity())}>+ New activity</button>
           <button type="button" className="secondary" onClick={() => fileRef.current?.click()}>Import…</button>
           {activities && activities.length > 0 && (
-            <button type="button" className="secondary" onClick={async () => downloadText(`activity-library${PACKAGE_EXTENSION}`, await exportPackage(activities))}>Export all</button>
+            <button type="button" className="secondary" onClick={() => safeExport(activities, `activity-library${ZIP_PACKAGE_EXTENSION}`)}>Export all</button>
           )}
-          <input ref={fileRef} type="file" accept=".json,application/json" hidden aria-label="Import activity file" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onImport(f); e.target.value = ''; }} />
+          <input ref={fileRef} type="file" accept=".zip,.json,application/zip,application/json" hidden aria-label="Import activity file" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onImport(f); e.target.value = ''; }} />
         </div>
       </div>
       {message && <p className={`notice ${message.kind}`} role={message.kind === 'error' ? 'alert' : 'status'}>{message.text}</p>}
@@ -76,6 +84,7 @@ export function Library() {
           <div className="actions">
             <button type="button" className="primary" onClick={() => create(createActivity())}>Create an activity</button>
             <button type="button" className="secondary" onClick={() => create(sampleActivity())}>Open a sample activity</button>
+            <button type="button" className="secondary" onClick={() => create(sampleSortingActivity())}>Open a drag-and-drop sample</button>
           </div>
         </div>
       ) : (
@@ -95,7 +104,7 @@ export function Library() {
                 <div className="actions">
                   <a className="button secondary" href={`#/teacher/edit/${a.id}`}>Edit</a>
                   <button type="button" className="ghost" onClick={async () => { await putActivity(duplicateActivity(a)); setMessage({ kind: 'ok', text: `Duplicated “${a.title}”.` }); await refresh(); }}>Duplicate</button>
-                  <button type="button" className="ghost" onClick={async () => downloadText(`${safeFilename(a.title)}${PACKAGE_EXTENSION}`, await exportPackage([a]))}>Export</button>
+                  <button type="button" className="ghost" onClick={() => safeExport([a], `${safeFilename(a.title)}${ZIP_PACKAGE_EXTENSION}`)}>Export</button>
                   <button type="button" className="ghost danger" onClick={() => remove(a)}>Delete</button>
                 </div>
               </li>

@@ -1,15 +1,16 @@
 import type { Activity } from '../schema/activity';
 import { getItemDefinition, type ItemResponse } from '../items/registry';
 import { roundScore, type ActivityResult, type ItemStatus } from './types';
+import { presentedItems } from '../selection';
 
 /**
  * Deterministic grading of a whole activity. Same input -> same output on any
  * device, which lets a submission broker re-grade raw responses to verify a
  * client-computed score.
  */
-export function gradeActivity(activity: Activity, responses: Record<string, ItemResponse | undefined>): ActivityResult {
+export function gradeActivity(activity: Activity, responses: Record<string, ItemResponse | undefined>, presentedItemIds: string[] | null = null): ActivityResult {
   const counts: Record<ItemStatus, number> = { correct: 0, partial: 0, incorrect: 0, unanswered: 0, 'needs-review': 0, ungraded: 0 };
-  const items = activity.items.map((item) => {
+  const items = presentedItems(activity, presentedItemIds).map((item) => {
     const def = getItemDefinition(item.type);
     const r = def.grade(item as never, responses[item.id] as never, { language: activity.language });
     counts[r.status]++;

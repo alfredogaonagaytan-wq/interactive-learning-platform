@@ -49,7 +49,7 @@ describe('Teacher editor', () => {
     const box = screen.getByLabelText('Text with blanks');
     await user.click(box);
     await user.paste('She [went | was going] home.');
-    expect(await screen.findByText('1 blank found')).toBeInTheDocument();
+    expect(await screen.findByText('1 gap found')).toBeInTheDocument();
     await waitFor(async () => {
       const saved = await getActivity(a.id);
       const item = saved?.items[0];

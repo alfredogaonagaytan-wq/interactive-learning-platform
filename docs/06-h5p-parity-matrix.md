@@ -9,22 +9,22 @@ Legend — **Native**: implement in our schema. **Reuse**: MIT H5P code/format c
 | Multiple Choice | Native `multiple-choice` | Yes | 1 | ✅ Done |
 | True/False Question | Native `true-false` | Yes | 1 | ✅ Done |
 | Fill in the Blanks | Native `fill-blanks` | Yes | 1 | ✅ Done |
-| Single Choice Set | Native (MC set mode) | Yes | 2 | Planned |
-| Drag the Words | Native `drag-words` (+ keyboard/tap mode) | Yes | 2 | Planned |
-| Drag and Drop (text & images) | Native `drag-drop` with zones | Partial | 2 | Planned |
-| Image Pairing / matching | Native `matching` | Yes | 2 | Planned |
-| Image Sequencing / ordering | Native `sequencing` | Yes | 2 | Planned |
-| Sort the Paragraphs | Native `sequencing` (paragraph mode) | Yes | 2 | Planned |
-| Mark the Words | Native `mark-words` | Yes | 2 | Planned |
+| Single Choice Set | Native (MC set mode) | Yes | 7 | Planned (moved from 2) |
+| Drag the Words | Native `drag-words` (+ keyboard/tap mode) | Yes | 2 | ✅ Done |
+| Drag and Drop (text & images) | Native `drag-drop` with zones | Partial | 2 | ✅ Done |
+| Image Pairing / matching | Native `matching` | Yes | 2 | ✅ Done |
+| Image Sequencing / ordering | Native `sequencing` | Yes | 2 | ✅ Done |
+| Sort the Paragraphs | Native `sequencing` (paragraph mode) | Yes | 2 | ✅ Done |
+| Mark the Words | Native `mark-words` | Yes | 2 | ✅ Done |
 | Question Set (Quiz) | Native — every activity is a multi-item set | Yes | 1 | ✅ (activity = set) |
-| Summary | Native `summary` (select correct statements) | Yes | 2 | Planned |
+| Summary | Native `summary` (select correct statements) | Yes | 7 | Planned (moved from 2) |
 | Essay | Native `extended-response` (rule checks + teacher review) | Partial | 4 | Planned |
 | Dictation | Native `dictation` | Yes | 3 | Planned |
 | Speak the Words / Set | Native `speaking` (record + optional ASR, opt-in) | Partial | 3 | Planned |
 | Audio / Audio Recorder | Native media + recorder | Yes | 3 | Planned |
-| Find the Hotspot / Multiple Hotspots | Native `hotspot` | Yes | 2–7 | Planned |
+| Find the Hotspot / Multiple Hotspots | Native `hotspot` (single answer; multiple-hotspot mode in 7) | Yes | 2 | ✅ Done |
 | Image Hotspots (info) | Native `interactive-image` | Yes | 7 | Planned |
-| Image labeling | Native `drag-drop` (label mode) | Partial | 2 | Planned |
+| Image labeling | Native `drag-drop` (label mode) | Partial | 2 | ✅ Done |
 | Dialog Cards | Native `dialog-cards` | Yes | 7 | Planned |
 | Flashcards | Native `flashcards` | Yes | 7 | Planned |
 | Memory Game | Native `memory` | Yes | 7 | Planned |
@@ -43,6 +43,8 @@ Legend — **Native**: implement in our schema. **Reuse**: MIT H5P code/format c
 | Guess the Answer / Information Wall / Personality Quiz / Questionnaire | Native | Partial | 8 | Backlog |
 | Virtual Tour (360) / Game Map / AR Scavenger | Fallback player (`h5p-standalone`, sandboxed, ungraded) | Play only | 7–8 | Backlog |
 | Iframe Embedder / KewAr Code / Twitter feed (deprecated) | Not planned (security / obsolete) | — | — | Won't do |
+
+Also done in Phase 2: **Dropdown cloze** (native `dropdown-cloze`) and **question banks / random pools**.
 
 ## Beyond H5P (spec requirements)
 Grammar engine (Phase 3), sentence reconstruction / transformation (3), listening with play limits (3), pronunciation practice with honest feedback tiers (3), Cornell Observation Notes with preserved source text (4), CER/TCTAC/rubrics (4), roster-verified Drive submissions (5), analytics (6).

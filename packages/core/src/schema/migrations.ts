@@ -10,8 +10,8 @@ import { ActivitySchema, CURRENT_SCHEMA_VERSION, type Activity } from './activit
 export type Migration = (raw: Record<string, unknown>) => Record<string, unknown>;
 
 export const activityMigrations: Record<number, Migration> = {
-  // Example for the future:
-  // 1: (raw) => ({ ...raw, schemaVersion: 2, newField: defaultValue }),
+  // v1 -> v2 (Phase 2): question pools added; new item types are additive.
+  1: (raw) => ({ ...raw, schemaVersion: 2, pools: Array.isArray(raw.pools) ? raw.pools : [] }),
 };
 
 export class SchemaVersionError extends Error {}
@@ -38,4 +38,9 @@ export function migrateActivityJson(
 
 export function parseActivity(input: unknown): Activity {
   return ActivitySchema.parse(migrateActivityJson(input));
+}
+
+/** Upgrade a stored published version (its embedded activity) to the current schema, in memory only. */
+export function upgradePublishedVersion<T extends { activity: unknown }>(v: T): T & { activity: Activity } {
+  return { ...v, activity: parseActivity(v.activity) };
 }

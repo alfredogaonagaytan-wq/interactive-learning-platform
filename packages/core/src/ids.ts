@@ -4,7 +4,7 @@
  */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz'; // Crockford base32, lowercase
 
-export type IdPrefix = 'act' | 'itm' | 'chc' | 'blk' | 'att' | 'rpt' | 'pkg' | 'asg' | 'cls';
+export type IdPrefix = 'act' | 'itm' | 'chc' | 'blk' | 'att' | 'rpt' | 'pkg' | 'asg' | 'cls' | 'zon' | 'drg' | 'par' | 'seq' | 'hsp' | 'pol' | 'bnk';
 
 export function randomId(prefix: IdPrefix, length = 16): string {
   const bytes = new Uint8Array(length);

@@ -18,3 +18,6 @@ export async function published(a: Activity = testActivity()): Promise<Published
   await putVersion(version);
   return version;
 }
+
+/** A real 1×1 PNG for media tests. */
+export const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));

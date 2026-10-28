@@ -1,28 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  cloneItem, createItem, getItemDefinition, hasUnpublishedChanges, PACKAGE_EXTENSION, PublishError, validateActivity,
-  type Activity, type ActivitySettings, type Item, type ItemType, type ValidationIssue,
+  cloneItem, createItem, getItemDefinition, hasUnpublishedChanges, PublishError, randomId, validateActivity, ZIP_PACKAGE_EXTENSION,
+  type Activity, type ActivitySettings, type Item, type ItemType, type Pool, type ValidationIssue,
 } from '@ilp/core';
 import { getActivity, listVersions } from '../storage/db';
 import { exportPackage, publish, saveDraft } from '../storage/library';
-import { ADDABLE_TYPES, getPlugin } from '../plugins/registry';
+import { ADD_GROUPS, getPlugin } from '../plugins/registry';
+import { QuestionBankDialog, saveToBank } from './QuestionBank';
+import { itemSummary } from './itemSummary';
 import { Checkbox, NumberField, Select, TextArea, TextField } from '../ui/fields';
-import { downloadText, formatTime, safeFilename } from '../app/util';
+import { downloadBytes, formatTime, safeFilename } from '../app/util';
 import { useConfirm } from '../ui/dialog';
 
 const SETTINGS = '__settings__';
 const AUTOSAVE_MS = 500;
-
-function itemSummary(item: Item): string {
-  switch (item.type) {
-    case 'content':
-      return item.title || item.body.slice(0, 60) || 'Empty text block';
-    case 'fill-blanks':
-      return item.segments.map((s) => (s.kind === 'text' ? s.text : '___')).join('').slice(0, 60) || 'No text yet';
-    default:
-      return item.prompt.slice(0, 60) || 'No question text yet';
-  }
-}
 
 export function Editor({ id }: { id: string }) {
   const [activity, setActivity] = useState<Activity | null | undefined>(undefined);
@@ -31,6 +22,7 @@ export function Editor({ id }: { id: string }) {
   const [issues, setIssues] = useState<ValidationIssue[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [versions, setVersions] = useState<number>(0);
+  const [bankOpen, setBankOpen] = useState(false);
   const pending = useRef<Activity | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirm = useConfirm();
@@ -113,8 +105,26 @@ export function Editor({ id }: { id: string }) {
   };
   const removeItem = async (item: Item) => {
     if (!(await confirm({ title: 'Delete this item?', body: itemSummary(item), confirmLabel: 'Delete', danger: true }))) return;
-    update({ ...activity, items: activity.items.filter((i) => i.id !== item.id) });
+    update({ ...activity, items: activity.items.filter((i) => i.id !== item.id), pools: activity.pools.map((p) => ({ ...p, itemIds: p.itemIds.filter((id) => id !== item.id) })) });
     setSelected(SETTINGS);
+  };
+  const insertItems = (newItems: Item[]) => {
+    const idx = activity.items.findIndex((i) => i.id === selected);
+    const items = [...activity.items];
+    items.splice(idx === -1 ? items.length : idx + 1, 0, ...newItems);
+    update({ ...activity, items });
+    setBankOpen(false);
+    if (newItems[0]) setSelected(newItems[0].id);
+    setNotice(`Inserted ${newItems.length} question${newItems.length === 1 ? '' : 's'} from the bank.`);
+  };
+  const setItemPool = (itemId: string, poolId: string | null) =>
+    update({ ...activity, pools: activity.pools.map((p) => ({ ...p, itemIds: p.id === poolId ? [...p.itemIds.filter((x) => x !== itemId), itemId] : p.itemIds.filter((x) => x !== itemId) })) });
+  const doExport = async () => {
+    try {
+      downloadBytes(`${safeFilename(activity.title)}${ZIP_PACKAGE_EXTENSION}`, await exportPackage([(await flush()) ?? activity]));
+    } catch (e) {
+      setNotice(`Could not export: ${(e as Error).message}`);
+    }
   };
 
   const doPublish = async () => {
@@ -162,7 +172,7 @@ export function Editor({ id }: { id: string }) {
         <div className="actions">
           <a className="button ghost" href={`#/teacher/preview/${activity.id}?as=teacher`} onClick={() => void flush()}>Teacher preview</a>
           <a className="button secondary" href={`#/teacher/preview/${activity.id}?as=student`} onClick={() => void flush()}>Student preview</a>
-          <button type="button" className="ghost" onClick={async () => downloadText(`${safeFilename(activity.title)}${PACKAGE_EXTENSION}`, await exportPackage([(await flush()) ?? activity]))}>Export</button>
+          <button type="button" className="ghost" onClick={doExport}>Export</button>
           <button type="button" className="primary" onClick={doPublish}>Publish</button>
         </div>
       </div>
@@ -193,10 +203,11 @@ export function Editor({ id }: { id: string }) {
             {activity.items.map((item, idx) => {
               const scorable = getItemDefinition(item.type).scorable;
               const has = issuesFor(item.id).length > 0;
+              const pool = activity.pools.find((p) => p.itemIds.includes(item.id));
               return (
                 <li key={item.id}>
                   <button type="button" className={`outline-item ${selected === item.id ? 'active' : ''}`} aria-current={selected === item.id} onClick={() => setSelected(item.id)}>
-                    <span className="outline-type">{scorable ? `Q${++qn} · ` : ''}{getPlugin(item.type).label}{has && <span className="badge error-badge">needs fixing</span>}</span>
+                    <span className="outline-type">{scorable ? `Q${++qn} · ` : ''}{getPlugin(item.type).label}{pool && <span className="badge info">pool: {pool.name}</span>}{has && <span className="badge error-badge">needs fixing</span>}</span>
                     <span className="outline-text">{itemSummary(item)}</span>
                   </button>
                   <div className="icon-buttons">
@@ -209,28 +220,48 @@ export function Editor({ id }: { id: string }) {
           </ol>
           <details className="add-menu" open={activity.items.length === 0}>
             <summary className="button secondary">+ Add item</summary>
-            <ul>
-              {ADDABLE_TYPES.map((t) => (
-                <li key={t}>
-                  <button type="button" className="add-option" onClick={(e) => { addItem(t); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}>
-                    <strong>{getPlugin(t).label}</strong>
-                    <span>{getPlugin(t).description}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <p className="field-hint">More types (drag the words, matching, sequencing, audio…) arrive in later phases.</p>
+            {ADD_GROUPS.map((g) => (
+              <div key={g.label} className="add-group">
+                <h3 className="add-group-label">{g.label}</h3>
+                <ul>
+                  {g.types.map((t) => (
+                    <li key={t}>
+                      <button type="button" className="add-option" onClick={(e) => { addItem(t); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}>
+                        <strong>{getPlugin(t).label}</strong>
+                        <span>{getPlugin(t).description}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <button type="button" className="add-option" onClick={(e) => { setBankOpen(true); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}>
+              <strong>From question bank…</strong>
+              <span>Reuse questions you saved from other activities.</span>
+            </button>
+            <p className="field-hint">Audio, listening and speaking types arrive in Phase 3.</p>
           </details>
         </nav>
 
         <section className="panel card" aria-label={sel ? `Edit ${getPlugin(sel.type).label}` : 'Activity details and settings'}>
           {sel ? (
-            <ItemPanel key={sel.id} item={sel} language={activity.language} onChange={setItem} onDuplicate={() => duplicateItem(sel)} onDelete={() => removeItem(sel)} />
+            <ItemPanel
+              key={sel.id}
+              item={sel}
+              language={activity.language}
+              pools={activity.pools}
+              onPool={(poolId) => setItemPool(sel.id, poolId)}
+              onChange={setItem}
+              onDuplicate={() => duplicateItem(sel)}
+              onDelete={() => removeItem(sel)}
+              onSaveToBank={async () => { await saveToBank(sel, activity.title); setNotice('Saved a copy to your question bank.'); }}
+            />
           ) : (
             <SettingsPanel activity={activity} versions={versions} onChange={update} setSettings={setSettings} />
           )}
         </section>
       </div>
+      <QuestionBankDialog open={bankOpen} onClose={() => setBankOpen(false)} onInsert={insertItems} />
     </div>
   );
 }
@@ -245,18 +276,38 @@ function labelFor(a: Activity, itemId: string): string {
   return 'Item';
 }
 
-function ItemPanel({ item, language, onChange, onDuplicate, onDelete }: { item: Item; language: string; onChange: (i: Item) => void; onDuplicate: () => void; onDelete: () => void }) {
+function ItemPanel({ item, language, pools, onPool, onChange, onDuplicate, onDelete, onSaveToBank }: {
+  item: Item;
+  language: string;
+  pools: Pool[];
+  onPool: (poolId: string | null) => void;
+  onChange: (i: Item) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onSaveToBank: () => void;
+}) {
   const plugin = getPlugin(item.type);
   const Editor = plugin.Editor;
+  const scorable = getItemDefinition(item.type).scorable;
+  const pool = pools.find((p) => p.itemIds.includes(item.id));
   return (
     <>
       <div className="panel-head">
         <h2>{plugin.label}</h2>
         <div className="actions">
+          {scorable && <button type="button" className="ghost" onClick={onSaveToBank}>Save to question bank</button>}
           <button type="button" className="ghost" onClick={onDuplicate}>Duplicate</button>
           <button type="button" className="ghost danger" onClick={onDelete}>Delete</button>
         </div>
       </div>
+      {scorable && pools.length > 0 && (
+        <Select
+          label="Question pool"
+          value={pool?.id ?? ''}
+          onChange={(v) => onPool(v || null)}
+          options={[{ value: '', label: 'Always shown (not in a pool)' }, ...pools.map((p) => ({ value: p.id, label: `${p.name} (draw ${p.draw} of ${p.itemIds.length})` }))]}
+        />
+      )}
       <Editor item={item} onChange={onChange} language={language} />
     </>
   );
@@ -305,7 +356,26 @@ function SettingsPanel({ activity, versions, onChange, setSettings }: { activity
       <Checkbox label="Allow hints" checked={s.showHints} onChange={(showHints) => setSettings({ showHints })} />
       <Checkbox label="Shuffle question order for each attempt" checked={s.shuffleItems} onChange={(shuffleItems) => setSettings({ shuffleItems })} />
       <NumberField label="Target score (%)" hint="Reports show whether the target was met." value={s.passingPercent} min={0} max={100} nullable nullLabel="No target" onChange={(passingPercent) => setSettings({ passingPercent })} />
+      <PoolsEditor pools={activity.pools} onChange={(pools) => onChange({ ...activity, pools })} />
       <p className="meta">Activity ID <code>{activity.id}</code> · {versions} published version{versions === 1 ? '' : 's'}</p>
+    </>
+  );
+}
+
+function PoolsEditor({ pools, onChange }: { pools: Pool[]; onChange: (p: Pool[]) => void }) {
+  const set = (id: string, patch: Partial<Pool>) => onChange(pools.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  return (
+    <>
+      <h2>Question pools</h2>
+      <p className="field-hint">A pool shows each student a random selection of its questions (the same selection after a reload). Assign questions to a pool from each question’s panel.</p>
+      {pools.map((p, i) => (
+        <div key={p.id} className="pool-row">
+          <TextField label={`Pool ${i + 1} name`} value={p.name} onChange={(name) => set(p.id, { name })} />
+          <NumberField label="Questions to show" value={p.draw} min={1} max={500} onChange={(draw) => set(p.id, { draw: draw ?? 1 })} hint={`${p.itemIds.length} question${p.itemIds.length === 1 ? '' : 's'} in this pool`} />
+          <button type="button" className="ghost danger" onClick={() => onChange(pools.filter((x) => x.id !== p.id))}>Remove pool</button>
+        </div>
+      ))}
+      <button type="button" className="secondary" onClick={() => onChange([...pools, { id: randomId('pol'), name: `Pool ${pools.length + 1}`, draw: 1, itemIds: [] }])}>+ Add question pool</button>
     </>
   );
 }

@@ -46,3 +46,71 @@ export function sampleActivity(): Activity {
   ];
   return a;
 }
+
+/** Second fictional sample showing the Phase 2 activity types (no images needed). */
+export function sampleSortingActivity(): Activity {
+  const a = createActivity('Ecosystems: sort, match and order');
+  a.description = 'Science vocabulary practice with drag-and-drop, matching and sequencing.';
+  a.subject = 'Science';
+  a.gradeBand = 'Grade 7';
+  const id = (p: Parameters<typeof randomId>[0]) => randomId(p);
+  const prod = id('zon');
+  const cons = id('zon');
+  const decomp = id('zon');
+  a.items = [
+    {
+      type: 'drag-words', id: id('itm'), prompt: 'Drag the words into the gaps.',
+      segments: [
+        { kind: 'text', text: 'Plants are ' }, { kind: 'blank', id: id('blk'), answers: ['producers'] },
+        { kind: 'text', text: ' because they use energy from ' }, { kind: 'blank', id: id('blk'), answers: ['sunlight'] },
+        { kind: 'text', text: ' to make food. Animals that eat plants are ' }, { kind: 'blank', id: id('blk'), answers: ['herbivores'] }, { kind: 'text', text: '.' },
+      ],
+      distractors: ['carnivores', 'soil'], points: 3, scoring: 'per-blank', feedback: {}, skills: ['food chains vocabulary'],
+    },
+    {
+      type: 'dropdown-cloze', id: id('itm'), prompt: 'Choose the correct form.',
+      segments: [
+        { kind: 'text', text: 'A fungus ' }, { kind: 'blank', id: id('blk'), answers: ['breaks', 'break', 'breaking'] },
+        { kind: 'text', text: ' down dead leaves. Bacteria ' }, { kind: 'blank', id: id('blk'), answers: ['are', 'is', 'be'] }, { kind: 'text', text: ' decomposers too.' },
+      ],
+      points: 2, scoring: 'per-blank', feedback: {}, skills: ['subject-verb agreement'],
+    },
+    {
+      type: 'matching', id: id('itm'), prompt: 'Match each word with its definition.',
+      pairs: [
+        { id: id('par'), left: 'producer', leftImage: null, right: 'makes its own food' },
+        { id: id('par'), left: 'consumer', leftImage: null, right: 'eats other living things' },
+        { id: id('par'), left: 'decomposer', leftImage: null, right: 'breaks down dead matter' },
+      ],
+      distractors: ['lives only in water'], points: 3, scoring: 'per-pair', feedback: {}, skills: ['food chains vocabulary'],
+    },
+    {
+      type: 'sequencing', id: id('itm'), prompt: 'Put the food chain in order, starting with the energy source.', display: 'list',
+      steps: ['Sun', 'Grass', 'Grasshopper', 'Frog', 'Hawk'].map((t) => ({ id: id('seq'), text: t, image: null })),
+      points: 2, scoring: 'per-position', feedback: { explanation: 'Energy flows from the sun to producers, then to consumers.' }, skills: ['food chains'],
+    },
+    {
+      type: 'mark-words', id: id('itm'), prompt: 'Click all the living things.',
+      text: 'In the pond, a *frog* sat on a rock while *algae* floated in the warm water and a *heron* waited nearby.',
+      points: 3, feedback: {}, skills: ['living vs non-living'],
+    },
+    {
+      type: 'drag-drop', id: id('itm'), prompt: 'Sort each organism into its role.', background: null,
+      zones: [
+        { id: prod, label: 'Producers', showLabel: true, x: 0, y: 0, w: 30, h: 30, capacity: null },
+        { id: cons, label: 'Consumers', showLabel: true, x: 0, y: 0, w: 30, h: 30, capacity: null },
+        { id: decomp, label: 'Decomposers', showLabel: true, x: 0, y: 0, w: 30, h: 30, capacity: null },
+      ],
+      draggables: [
+        { id: id('drg'), text: 'oak tree', image: null, correctZoneIds: [prod] },
+        { id: id('drg'), text: 'seaweed', image: null, correctZoneIds: [prod] },
+        { id: id('drg'), text: 'rabbit', image: null, correctZoneIds: [cons] },
+        { id: id('drg'), text: 'owl', image: null, correctZoneIds: [cons] },
+        { id: id('drg'), text: 'mushroom', image: null, correctZoneIds: [decomp] },
+        { id: id('drg'), text: 'rock', image: null, correctZoneIds: [] },
+      ],
+      points: 5, scoring: 'per-item', feedback: { hint: 'One card is not a living thing — leave it in the bank.' }, skills: ['food chains'],
+    },
+  ];
+  return a;
+}

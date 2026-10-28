@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  attemptsRemaining, buildReport, canCheckItem, canRevealAnswers, canShowResults, getItemDefinition, gradeActivity, randomId, reportToCsv,
-  type Attempt, type Item, type ItemResult, type PublishedVersion,
+  attemptsRemaining, buildReport, canCheckItem, canRevealAnswers, canShowResults, getItemDefinition, gradeActivity, presentedItems, randomId, reportToCsv,
+  selectItemIds, type Attempt, type Item, type ItemResult, type PublishedVersion,
 } from '@ilp/core';
 import { getPlugin } from '../plugins/registry';
 import { listAttempts, putAttempt } from '../storage/db';
 import { journalClear, journalRead, journalWrite } from '../storage/journal';
-import { downloadText, formatTime, safeFilename, seededShuffle } from '../app/util';
+import { downloadText, formatTime, safeFilename } from '../app/util';
 import { useConfirm } from '../ui/dialog';
 
 export type PlayerMode = 'student' | 'preview' | 'teacher-preview';
@@ -21,20 +21,14 @@ const SAVE_DELAY_MS = 300;
 
 function newAttempt(v: PublishedVersion, mode: PlayerMode, attemptNumber: number): Attempt {
   const now = new Date().toISOString();
+  const id = randomId('att');
   return {
-    kind: 'ilp.attempt', schemaVersion: 1, id: randomId('att'), activityId: v.activityId, version: v.version, contentHash: v.contentHash,
+    kind: 'ilp.attempt', schemaVersion: 1, id, activityId: v.activityId, version: v.version, contentHash: v.contentHash,
     mode: mode === 'student' ? 'student' : 'preview', assignmentId: null, attemptNumber, status: 'in-progress',
+    // Question pools and shuffling are resolved once, when the attempt starts.
+    presentedItemIds: selectItemIds(v.activity, id),
     responses: {}, checks: {}, hintsUsed: {}, startedAt: now, updatedAt: now, submittedAt: null, sync: 'local-only',
   };
-}
-
-/** Keep non-scored blocks in place; shuffle questions among question slots. */
-function orderItems(items: Item[], shuffle: boolean, seed: string): Item[] {
-  if (!shuffle) return items;
-  const isQ = (i: Item) => getItemDefinition(i.type).scorable;
-  const shuffled = seededShuffle(items.filter(isQ), seed);
-  let k = 0;
-  return items.map((i) => (isQ(i) ? shuffled[k++]! : i));
 }
 
 export function ActivityPlayer({ version, mode, onExit }: Props) {
@@ -137,7 +131,7 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
     };
   }, [version, mode, persistent]);
 
-  const items = useMemo(() => (attempt ? orderItems(activity.items, settings.shuffleItems, attempt.id) : []), [activity, settings.shuffleItems, attempt?.id]);
+  const items = useMemo(() => (attempt ? presentedItems(activity, attempt.presentedItemIds ?? null) : []), [activity, attempt?.presentedItemIds]);
 
   if (!loaded || !attempt) return <p role="status">Loading activity…</p>;
 
@@ -147,7 +141,7 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
   const showResults = mode === 'teacher-preview' ? submitted : canShowResults(settings, vis);
   const reveal = mode === 'teacher-preview' ? true : canRevealAnswers(settings, vis);
   const remaining = attemptsRemaining(settings, attemptsUsed);
-  const result = submitted ? gradeActivity(activity, attempt.responses as never) : null;
+  const result = submitted ? gradeActivity(activity, attempt.responses as never, attempt.presentedItemIds ?? null) : null;
   const resultById = new Map(result?.items.map((r) => [r.itemId, r]));
   const showKey = mode === 'teacher-preview';
   let qn = 0;
@@ -174,7 +168,7 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
   };
 
   const submit = async () => {
-    const unanswered = activity.items.filter((i) => {
+    const unanswered = items.filter((i) => {
       const d = getItemDefinition(i.type);
       return d.scorable && !d.isAnswered(i as never, attempt.responses[i.id] as never);
     }).length;
@@ -263,6 +257,8 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
           const r = submitted ? (showResults ? resultById.get(item.id) : undefined) : checked[item.id];
           const used = attempt.checks[item.id] ?? 0;
           const hint = 'feedback' in item ? item.feedback.hint : undefined;
+          const gapHints = 'segments' in item && item.segments.some((sg) => sg.kind === 'blank' && sg.hint);
+          const hintsOpen = hintsShown.has(item.id);
           const canCheck = !submitted && def.scorable && (mode === 'teacher-preview' || canCheckItem(settings, used));
           const correctAnswers = submitted && showResults && reveal && def.scorable ? def.correctAnswers(item as never) : [];
           return (
@@ -273,7 +269,7 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
                   <span className="points">{def.maxScore(item as never)} pt{def.maxScore(item as never) === 1 ? '' : 's'}</span>
                 </div>
               )}
-              <Player item={item} response={(attempt.responses[item.id] as never) ?? def.emptyResponse(item as never)} onChange={(v: unknown) => setResponse(item.id, v)} disabled={submitted} result={r} showKey={showKey} seed={attempt.id} label={qLabel} />
+              <Player item={item} response={(attempt.responses[item.id] as never) ?? def.emptyResponse(item as never)} onChange={(v: unknown) => setResponse(item.id, v)} disabled={submitted} result={r} showKey={showKey} seed={attempt.id} label={qLabel} hintsShown={hintsOpen} />
               {r && r.status !== 'ungraded' && (
                 <div className={`feedback fb-${r.status}`}>
                   <strong>{statusText(r.status)}</strong>
@@ -288,7 +284,7 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
               {!submitted && def.scorable && (
                 <div className="item-actions">
                   {canCheck && <button type="button" className="secondary" onClick={() => check(item)}>Check{settings.checksPerItem !== null && mode !== 'teacher-preview' ? ` (${settings.checksPerItem - used} left)` : ''}</button>}
-                  {settings.showHints && hint && (hintsShown.has(item.id) ? <p className="hint" role="note"><strong>Hint:</strong> {hint}</p> : <button type="button" className="ghost" onClick={() => showHint(item)}>Show hint</button>)}
+                  {settings.showHints && (hint || gapHints) && (hintsOpen ? (hint ? <p className="hint" role="note"><strong>Hint:</strong> {hint}</p> : null) : <button type="button" className="ghost" onClick={() => showHint(item)}>Show hint</button>)}
                 </div>
               )}
             </li>

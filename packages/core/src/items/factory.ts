@@ -39,6 +39,49 @@ export function createItem(type: ItemType): Item {
         feedback: {},
         skills: [],
       };
+    case 'drag-words':
+      return { type, id, prompt: 'Drag the words into the gaps.', segments: [], distractors: [], points: 1, scoring: 'per-blank', feedback: {}, skills: [] };
+    case 'dropdown-cloze':
+      return { type, id, prompt: 'Choose the correct word in each gap.', segments: [], points: 1, scoring: 'per-blank', feedback: {}, skills: [] };
+    case 'matching':
+      return {
+        type, id, prompt: 'Match each item with its partner.',
+        pairs: [
+          { id: randomId('par'), left: '', leftImage: null, right: '' },
+          { id: randomId('par'), left: '', leftImage: null, right: '' },
+        ],
+        distractors: [], points: 1, scoring: 'per-pair', feedback: {}, skills: [],
+      };
+    case 'sequencing':
+      return {
+        type, id, prompt: 'Put these in the correct order.', display: 'list',
+        steps: [
+          { id: randomId('seq'), text: '', image: null },
+          { id: randomId('seq'), text: '', image: null },
+          { id: randomId('seq'), text: '', image: null },
+        ],
+        points: 1, scoring: 'per-position', feedback: {}, skills: [],
+      };
+    case 'mark-words':
+      return { type, id, prompt: 'Click all the verbs.', text: '', points: 1, feedback: {}, skills: [] };
+    case 'drag-drop': {
+      const a = randomId('zon');
+      const b = randomId('zon');
+      return {
+        type, id, prompt: 'Drag each card to the correct box.', background: null,
+        zones: [
+          { id: a, label: 'Group A', showLabel: true, x: 5, y: 10, w: 40, h: 30, capacity: null },
+          { id: b, label: 'Group B', showLabel: true, x: 55, y: 10, w: 40, h: 30, capacity: null },
+        ],
+        draggables: [
+          { id: randomId('drg'), text: '', image: null, correctZoneIds: [a] },
+          { id: randomId('drg'), text: '', image: null, correctZoneIds: [b] },
+        ],
+        points: 1, scoring: 'per-item', feedback: {}, skills: [],
+      };
+    }
+    case 'hotspot':
+      return { type, id, prompt: '', image: null, hotspots: [], allowListAlternative: true, points: 1, feedback: {}, skills: [] };
   }
 }
 
@@ -54,6 +97,7 @@ export function createActivity(title = 'Untitled activity', now = new Date()): A
     subject: '',
     gradeBand: '',
     items: [],
+    pools: [],
     settings: { ...DEFAULT_SETTINGS },
     revision: 0,
     publishedVersion: null,
@@ -66,12 +110,19 @@ export function createActivity(title = 'Untitled activity', now = new Date()): A
 /** Deep copy with fresh ids for the activity and every item/choice/blank. */
 export function duplicateActivity(source: Activity, now = new Date()): Activity {
   const ts = now.toISOString();
-  const items = source.items.map(cloneItem);
+  const idMap = new Map<string, string>();
+  const items = source.items.map((it) => {
+    const c = cloneItem(it);
+    idMap.set(it.id, c.id);
+    return c;
+  });
+  const pools = source.pools.map((p) => ({ ...p, itemIds: p.itemIds.map((i) => idMap.get(i) ?? i) }));
   return {
     ...structuredClone(source),
     id: randomId('act'),
     title: `${source.title} (copy)`,
     items,
+    pools,
     revision: 0,
     publishedVersion: null,
     publishedRevision: null,
