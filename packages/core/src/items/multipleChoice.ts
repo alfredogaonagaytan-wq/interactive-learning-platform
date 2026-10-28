@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 
 export const ChoiceSchema = z.object({
   id: IdSchema,
@@ -18,6 +18,8 @@ export type Choice = z.infer<typeof ChoiceSchema>;
 export const MultipleChoiceItemSchema = z.object({
   type: z.literal('multiple-choice'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema,
   mode: z.enum(['single', 'multiple']).default('single'),
   choices: z.array(ChoiceSchema).max(20),

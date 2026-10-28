@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, ImageRefSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, ImageRefSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 import { roundScore, type PartResult, type ValidationIssue } from '../grading/types';
 import { outcome, outcomeFeedback, sameText, type ItemDefinition } from './definition';
 
@@ -17,6 +17,8 @@ export const MatchPairSchema = z.object({
 export const MatchingItemSchema = z.object({
   type: z.literal('matching'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema.default(''),
   pairs: z.array(MatchPairSchema).max(30),
   distractors: z.array(ShortTextSchema).max(20).default([]),

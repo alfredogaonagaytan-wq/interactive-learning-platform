@@ -29,16 +29,16 @@ Tests and samples use fictional content only. Phase 5 tests must use **synthetic
 ## Spec test list → current coverage
 | # | Spec test | Status |
 |---|---|---|
-| 1 | Correct/incorrect grammar answers | ✅ core grading tests (verb forms, capitalization) |
+| 1 | Correct/incorrect grammar answers | ✅ core grading + grammar engine (patterns, mistake rules, review routing) |
 | 2 | Multiple acceptable answers | ✅ |
 | 3 | Drag-and-drop | ✅ pointer drag (e2e desktop), tap-to-place (e2e phones), keyboard (component tests) |
 | 4 | Keyboard interactions | ✅ player + editor tests, incl. every Phase 2 type and the hotspot crosshair |
-| 5 | Sentence reconstruction | Phase 3 |
+| 5 | Sentence reconstruction | ✅ core + component (keyboard) + e2e |
 | 6 | Autosave & reload | ✅ unit + e2e + journal |
 | 7 | Interrupted connection | ✅ offline (local); upload interruption in Phase 5 |
 | 8 | Multi-device usability | ⚠️ emulated phone viewports on Chromium only |
 | 9–13 | Roster auth, unauthorised access, Drive files, teacher receipt, duplicate submissions | Phase 5 (local duplicate-version immutability ✅) |
 | 14 | Source-text integrity | Phase 4 (package + media integrity ✅) |
-| 15–16 | Recording permissions, pronunciation fallback | Phase 3 |
+| 15–16 | Recording permissions, pronunciation fallback | ✅ mocked permission states + real Chromium recording (simulated mic); speech-to-text consent/labelling |
 | 17 | Accessible interaction | ✅ axe (WCAG 2.2 AA tags) + keyboard tests; manual screen-reader testing pending |
 | 18 | Data deletion | ✅ |

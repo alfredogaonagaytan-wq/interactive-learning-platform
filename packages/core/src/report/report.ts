@@ -93,6 +93,16 @@ function promptOf(item: Activity['items'][number]): string {
       return item.prompt || item.segments.map((s) => (s.kind === 'text' ? s.text : '____')).join('');
     case 'mark-words':
       return item.prompt || 'Mark the words';
+    case 'audio':
+      return item.title || 'Audio';
+    case 'sentence-response':
+      return [item.prompt, item.source].filter(Boolean).join(' — ');
+    case 'sentence-builder':
+      return item.prompt || 'Build the sentence';
+    case 'dictation':
+      return item.prompt;
+    case 'speaking':
+      return item.prompt;
     default:
       return item.prompt;
   }
@@ -107,13 +117,17 @@ export function buildReport(activity: Activity, attempt: Attempt, options: Repor
     const def = getItemDefinition(item.type);
     if (!def.scorable) return;
     const r = result.items[index]!;
-    const mistakes = [
-      ...new Set(
-        r.parts
-          .filter((p) => !p.correct && p.reason)
-          .map((p) => (p.reason === 'wrong-choice' ? 'Selected an incorrect choice' : p.reason === 'missed-choice' ? 'Missed a correct choice' : MISMATCH_MESSAGES[p.reason as keyof typeof MISMATCH_MESSAGES])),
-      ),
-    ];
+    const reasonText: Record<string, string> = {
+      'wrong-choice': 'Selected an incorrect choice',
+      'missed-choice': 'Missed a correct choice',
+      typo: 'Spelling slip (one letter)',
+      missing: 'Missing word or idea',
+      extra: 'Extra word',
+      'wrong-word': 'Wrong word',
+      'error-rule': 'Matched a common mistake',
+      ...MISMATCH_MESSAGES,
+    };
+    const mistakes = [...new Set([...(r.errorTags ?? []).map((t) => `Error type: ${t}`), ...r.parts.filter((p) => !p.correct && p.reason).map((p) => reasonText[p.reason!] ?? p.reason!)])];
     items.push({
       index: items.length + 1,
       itemId: item.id,

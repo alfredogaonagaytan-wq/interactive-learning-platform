@@ -50,3 +50,23 @@ export const ImageRefSchema = z.object({
   decorative: z.boolean().default(false),
 });
 export type ImageRef = z.infer<typeof ImageRefSchema>;
+
+/** Reference to an audio asset (uploaded or recorded by the teacher), with an optional transcript. */
+export const AudioRefSchema = z.object({
+  assetId: IdSchema,
+  transcript: TextSchema.default(''),
+});
+export type AudioRef = z.infer<typeof AudioRefSchema>;
+
+/**
+ * Links a question to an audio block in the same activity, optionally to a
+ * segment (seconds). The player shows a "play this part" control on the
+ * question; plays count toward the clip's play limit.
+ */
+export const AudioCueSchema = z.object({
+  audioItemId: IdSchema,
+  start: z.number().min(0).nullable().default(null),
+  end: z.number().min(0).nullable().default(null),
+});
+export type AudioCue = z.infer<typeof AudioCueSchema>;
+export const AudioCueField = AudioCueSchema.nullable().default(null);

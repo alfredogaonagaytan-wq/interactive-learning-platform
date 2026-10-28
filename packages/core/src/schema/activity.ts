@@ -10,9 +10,14 @@ import { SequencingItemSchema } from '../items/sequencing';
 import { MarkWordsItemSchema } from '../items/markWords';
 import { DragDropItemSchema } from '../items/dragDrop';
 import { HotspotItemSchema } from '../items/hotspot';
+import { SentenceResponseItemSchema } from '../items/sentenceResponse';
+import { SentenceBuilderItemSchema } from '../items/sentenceBuilder';
+import { AudioItemSchema } from '../items/audio';
+import { DictationItemSchema } from '../items/dictation';
+import { SpeakingItemSchema } from '../items/speaking';
 import { IdSchema, LanguageTagSchema, ShortTextSchema, TextSchema } from './common';
 
-export const CURRENT_SCHEMA_VERSION = 2 as const;
+export const CURRENT_SCHEMA_VERSION = 3 as const;
 
 /**
  * All item types share one discriminated union. New question types are added
@@ -30,6 +35,11 @@ export const ItemSchema = z.discriminatedUnion('type', [
   MarkWordsItemSchema,
   DragDropItemSchema,
   HotspotItemSchema,
+  SentenceResponseItemSchema,
+  SentenceBuilderItemSchema,
+  AudioItemSchema,
+  DictationItemSchema,
+  SpeakingItemSchema,
 ]);
 export type Item = z.infer<typeof ItemSchema>;
 export type ItemType = Item['type'];

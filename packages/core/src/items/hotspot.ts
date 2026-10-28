@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, ImageRefSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, ImageRefSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 import type { ValidationIssue } from '../grading/types';
 import { outcome, outcomeFeedback, type ItemDefinition } from './definition';
 
@@ -20,6 +20,8 @@ export const HotspotSchema = z.object({
 export const HotspotItemSchema = z.object({
   type: z.literal('hotspot'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema,
   image: ImageRefSchema.nullable().default(null),
   hotspots: z.array(HotspotSchema).max(30),

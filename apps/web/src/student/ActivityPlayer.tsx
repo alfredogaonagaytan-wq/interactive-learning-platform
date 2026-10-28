@@ -4,7 +4,11 @@ import {
   selectItemIds, type Attempt, type Item, type ItemResult, type PublishedVersion,
 } from '@ilp/core';
 import { getPlugin } from '../plugins/registry';
-import { listAttempts, putAttempt } from '../storage/db';
+import { deleteRecordingsExcept, listAttempts, putAttempt } from '../storage/db';
+import { getRetention } from '../storage/retention';
+import { AudioPlayer } from '../ui/audioPlayer';
+import { useAssetUrl } from '../storage/assets';
+import type { PlayerContext } from '../plugins/types';
 import { journalClear, journalRead, journalWrite } from '../storage/journal';
 import { downloadText, formatTime, safeFilename } from '../app/util';
 import { useConfirm } from '../ui/dialog';
@@ -27,7 +31,7 @@ function newAttempt(v: PublishedVersion, mode: PlayerMode, attemptNumber: number
     mode: mode === 'student' ? 'student' : 'preview', assignmentId: null, attemptNumber, status: 'in-progress',
     // Question pools and shuffling are resolved once, when the attempt starts.
     presentedItemIds: selectItemIds(v.activity, id),
-    responses: {}, checks: {}, hintsUsed: {}, startedAt: now, updatedAt: now, submittedAt: null, sync: 'local-only',
+    responses: {}, checks: {}, hintsUsed: {}, mediaPlays: {}, startedAt: now, updatedAt: now, submittedAt: null, sync: 'local-only',
   };
 }
 
@@ -182,6 +186,16 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
     const done: Attempt = { ...attempt, status: 'submitted', submittedAt: now, updatedAt: now };
     persist(done, true);
     await flush();
+    if (persistent && (await getRetention()).deleteUnselectedOnSubmit) {
+      // Keep only recordings the student chose to submit; practice takes are deleted.
+      const keep = new Set<string>();
+      for (const it of items) {
+        if (it.type !== 'speaking') continue;
+        const r = done.responses[it.id] as { targets?: Record<string, { selectedRecordingId: string | null }> } | undefined;
+        for (const t of Object.values(r?.targets ?? {})) if (t.selectedRecordingId) keep.add(t.selectedRecordingId);
+      }
+      await deleteRecordingsExcept(done.id, keep);
+    }
     setHistory((h) => [...h, done]);
     setChecked({});
     setAnnounce('Submitted.');
@@ -194,6 +208,17 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
     setHintsShown(new Set());
     persist(a, true);
   };
+
+  const ctx: PlayerContext = {
+    activity,
+    attemptId: attempt.id,
+    mode,
+    submitted,
+    reveal: submitted && showResults && reveal,
+    plays: (key) => attempt.mediaPlays?.[key] ?? 0,
+    countPlay: (key) => persist({ ...attempt, mediaPlays: { ...attempt.mediaPlays, [key]: (attempt.mediaPlays?.[key] ?? 0) + 1 }, updatedAt: new Date().toISOString() }, true),
+  };
+  const audioById = new Map(activity.items.filter((i) => i.type === 'audio').map((i) => [i.id, i]));
 
   const report = () => buildReport(activity, attempt, { revealAnswers: reveal });
   const base = `${safeFilename(activity.title)}-v${version.version}-attempt${attempt.attemptNumber}`;
@@ -269,7 +294,10 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
                   <span className="points">{def.maxScore(item as never)} pt{def.maxScore(item as never) === 1 ? '' : 's'}</span>
                 </div>
               )}
-              <Player item={item} response={(attempt.responses[item.id] as never) ?? def.emptyResponse(item as never)} onChange={(v: unknown) => setResponse(item.id, v)} disabled={submitted} result={r} showKey={showKey} seed={attempt.id} label={qLabel} hintsShown={hintsOpen} />
+              {'audioCue' in item && item.audioCue && audioById.get(item.audioCue.audioItemId) && (
+                <CuePlayer cue={item.audioCue} audio={audioById.get(item.audioCue.audioItemId)!} ctx={ctx} label={qLabel} />
+              )}
+              <Player ctx={ctx} item={item} response={(attempt.responses[item.id] as never) ?? def.emptyResponse(item as never)} onChange={(v: unknown) => setResponse(item.id, v)} disabled={submitted} result={r} showKey={showKey} seed={attempt.id} label={qLabel} hintsShown={hintsOpen} />
               {r && r.status !== 'ungraded' && (
                 <div className={`feedback fb-${r.status}`}>
                   <strong>{statusText(r.status)}</strong>
@@ -301,8 +329,26 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
   );
 }
 
+function CuePlayer({ cue, audio, ctx, label }: { cue: NonNullable<Extract<Item, { type: 'multiple-choice' }>['audioCue']>; audio: Extract<Item, { type: 'audio' }>; ctx: PlayerContext; label: string }) {
+  const { url } = useAssetUrl(audio.audio?.assetId);
+  return (
+    <div className="cue">
+      <AudioPlayer
+        src={audio.audio ? url : null}
+        label={`${label} audio${audio.title ? `: ${audio.title}` : ''}`}
+        maxPlays={ctx.mode === 'teacher-preview' ? null : audio.maxPlays}
+        playsUsed={ctx.plays(audio.id)}
+        onPlay={() => ctx.countPlay(audio.id)}
+        speeds={audio.speeds}
+        segment={{ start: cue.start, end: cue.end }}
+        compact
+      />
+    </div>
+  );
+}
+
 function statusText(s: ItemResult['status']): string {
-  return { correct: 'Correct', partial: 'Partly correct', incorrect: 'Not correct', unanswered: 'Not answered', 'needs-review': 'Waiting for teacher review', ungraded: '' }[s];
+  return { correct: 'Correct', partial: 'Partly correct', incorrect: 'Not correct', unanswered: 'Not answered', 'needs-review': 'Your teacher will review this', ungraded: '' }[s];
 }
 
 function SaveIndicator({ state }: { state: { state: string; at?: string; error?: string } }) {

@@ -18,10 +18,10 @@ Legend — **Native**: implement in our schema. **Reuse**: MIT H5P code/format c
 | Mark the Words | Native `mark-words` | Yes | 2 | ✅ Done |
 | Question Set (Quiz) | Native — every activity is a multi-item set | Yes | 1 | ✅ (activity = set) |
 | Summary | Native `summary` (select correct statements) | Yes | 7 | Planned (moved from 2) |
-| Essay | Native `extended-response` (rule checks + teacher review) | Partial | 4 | Planned |
-| Dictation | Native `dictation` | Yes | 3 | Planned |
-| Speak the Words / Set | Native `speaking` (record + optional ASR, opt-in) | Partial | 3 | Planned |
-| Audio / Audio Recorder | Native media + recorder | Yes | 3 | Planned |
+| Essay | Native `extended-response` (rule checks + teacher review) | Partial | 4 | Planned (short answers done in Phase 3 via sentence response) |
+| Dictation | Native `dictation` | Yes | 3 | ✅ Done |
+| Speak the Words / Set | Native `speaking` (record + optional ASR, opt-in) | Partial | 3 | ✅ Done |
+| Audio / Audio Recorder | Native media + recorder | Yes | 3 | ✅ Done |
 | Find the Hotspot / Multiple Hotspots | Native `hotspot` (single answer; multiple-hotspot mode in 7) | Yes | 2 | ✅ Done |
 | Image Hotspots (info) | Native `interactive-image` | Yes | 7 | Planned |
 | Image labeling | Native `drag-drop` (label mode) | Partial | 2 | ✅ Done |
@@ -43,6 +43,8 @@ Legend — **Native**: implement in our schema. **Reuse**: MIT H5P code/format c
 | Guess the Answer / Information Wall / Personality Quiz / Questionnaire | Native | Partial | 8 | Backlog |
 | Virtual Tour (360) / Game Map / AR Scavenger | Fallback player (`h5p-standalone`, sandboxed, ungraded) | Play only | 7–8 | Backlog |
 | Iframe Embedder / KewAr Code / Twitter feed (deprecated) | Not planned (security / obsolete) | — | — | Won't do |
+
+Also done in Phase 3: grammar sentence tasks (transform/correct/combine/complete), sentence builder, listening clips with play limits and linked segments.
 
 Also done in Phase 2: **Dropdown cloze** (native `dropdown-cloze`) and **question banks / random pools**.
 

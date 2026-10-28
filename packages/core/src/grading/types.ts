@@ -15,7 +15,7 @@ export interface PartResult {
   partId: string;
   correct: boolean;
   given?: string;
-  reason?: MismatchReason | 'wrong-choice' | 'missed-choice';
+  reason?: MismatchReason | 'wrong-choice' | 'missed-choice' | 'typo' | 'missing' | 'extra' | 'wrong-word' | 'error-rule';
 }
 
 export interface ItemResult {
@@ -28,6 +28,8 @@ export interface ItemResult {
   skills: string[];
   /** Teacher-authored feedback chosen for this outcome (may be empty). */
   feedback?: string;
+  /** Error types identified by teacher rules, e.g. "subject-verb agreement". */
+  errorTags?: string[];
 }
 
 export interface ActivityResult {

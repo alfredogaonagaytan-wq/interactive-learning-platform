@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, ImageRefSchema, PointsSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, ImageRefSchema, PointsSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 import { roundScore, type PartResult, type ValidationIssue } from '../grading/types';
 import { outcome, outcomeFeedback, type ItemDefinition } from './definition';
 
@@ -15,6 +15,8 @@ export const SequenceStepSchema = z.object({
 export const SequencingItemSchema = z.object({
   type: z.literal('sequencing'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema.default(''),
   /** "paragraph" renders long text blocks (Sort the Paragraphs); "list" renders compact cards. */
   display: z.enum(['list', 'paragraph']).default('list'),

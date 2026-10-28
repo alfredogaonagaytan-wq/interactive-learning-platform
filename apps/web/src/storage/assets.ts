@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { checkMedia, IMAGE_TYPES } from '@ilp/core';
+import { AUDIO_TYPES, checkMedia, IMAGE_TYPES } from '@ilp/core';
 import { getAsset, putAsset } from './db';
 
 /** Validate an uploaded image (by file signature) and store it. Returns the asset id. */
@@ -7,6 +7,13 @@ export async function addImageFile(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const { id, mime } = await checkMedia(bytes, IMAGE_TYPES);
   await putAsset({ id, mime, bytes, name: file.name.slice(0, 120), addedAt: new Date().toISOString() });
+  return id;
+}
+
+/** Validate and store an audio file or a teacher's recording. Returns the asset id. */
+export async function addAudioBytes(bytes: Uint8Array, name: string): Promise<string> {
+  const { id, mime } = await checkMedia(bytes, AUDIO_TYPES);
+  await putAsset({ id, mime, bytes, name: name.slice(0, 120), addedAt: new Date().toISOString() });
   return id;
 }
 

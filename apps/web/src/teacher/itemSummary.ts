@@ -18,6 +18,16 @@ export function itemSummary(item: Item): string {
       return cut(item.pairs.map((p) => p.left).filter(Boolean).join(', ') || item.prompt, 'No pairs yet');
     case 'sequencing':
       return cut(item.steps.map((s) => s.text).filter(Boolean).join(' → ') || item.prompt, 'No steps yet');
+    case 'audio':
+      return cut(item.title || item.audio?.transcript || '', item.audio ? 'Audio clip' : 'No audio yet');
+    case 'sentence-response':
+      return cut(item.source || item.prompt, 'No prompt yet');
+    case 'sentence-builder':
+      return cut(item.sentence, 'No sentence yet');
+    case 'dictation':
+      return cut(item.text, 'No text yet');
+    case 'speaking':
+      return cut(item.targets.map((t) => t.text).filter(Boolean).join(' · '), 'No phrases yet');
     case 'drag-drop':
       return cut(item.prompt || item.zones.map((z) => z.label).join(' / '), 'No zones yet');
     default:

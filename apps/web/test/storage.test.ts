@@ -11,7 +11,7 @@ const enc = (s: string) => new TextEncoder().encode(s);
 
 function attempt(activityId: string, mode: Attempt['mode'], version = 1): Attempt {
   const now = new Date().toISOString();
-  return { kind: 'ilp.attempt', schemaVersion: 1, id: randomId('att'), activityId, version, contentHash: 'sha256:x', mode, assignmentId: null, attemptNumber: 1, status: 'in-progress', presentedItemIds: null, responses: {}, checks: {}, hintsUsed: {}, startedAt: now, updatedAt: now, submittedAt: null, sync: 'local-only' };
+  return { kind: 'ilp.attempt', schemaVersion: 1, id: randomId('att'), activityId, version, contentHash: 'sha256:x', mode, assignmentId: null, attemptNumber: 1, status: 'in-progress', presentedItemIds: null, mediaPlays: {}, responses: {}, checks: {}, hintsUsed: {}, startedAt: now, updatedAt: now, submittedAt: null, sync: 'local-only' };
 }
 
 describe('local storage', () => {

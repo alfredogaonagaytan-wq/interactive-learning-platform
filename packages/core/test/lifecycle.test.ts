@@ -95,7 +95,7 @@ describe('reports', () => {
   const a = sampleActivity();
   const attempt: Attempt = {
     kind: 'ilp.attempt', schemaVersion: 1, id: 'att_1', activityId: a.id, version: 1, contentHash: 'sha256:x', mode: 'student', assignmentId: null,
-    attemptNumber: 1, status: 'submitted', presentedItemIds: null, responses: { itm_mc: { choiceIds: ['c1'] }, itm_tf: { value: true }, itm_fb: { values: { blk_0: '=HYPERLINK("x")', blk_1: 'ate' } } },
+    attemptNumber: 1, status: 'submitted', presentedItemIds: null, mediaPlays: {}, responses: { itm_mc: { choiceIds: ['c1'] }, itm_tf: { value: true }, itm_fb: { values: { blk_0: '=HYPERLINK("x")', blk_1: 'ate' } } },
     checks: { itm_mc: 2 }, hintsUsed: {}, startedAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', submittedAt: '2026-01-01T00:10:00.000Z', sync: 'local-only',
   };
   it('summarises totals, skills and next steps', () => {

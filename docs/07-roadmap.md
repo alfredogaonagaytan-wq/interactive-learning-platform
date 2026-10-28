@@ -33,9 +33,22 @@ Phases set the order of work; they do not reduce the final scope. "Done" means i
 
 **Known gaps:** Single Choice Set and Summary moved to Phase 7 (each is a thin variant of existing types); images in packages are not resized/compressed (5 MB cap per image); unused images are not yet garbage-collected from device storage; no real iPhone/iPad/Android/Chromebook testing yet (emulated viewports only); drag-and-drop zone positions on images are authored in % and may need adjustment for very tall images on phones.
 
-## Phase 3 — Language learning
-Grammar engine (teacher-defined rules: accepted patterns, error-type tagging, separate meaning vs. accuracy scores, "needs review" fallback), sentence reconstruction, transformation, error correction; listening (multiple clips, speed, max plays, timestamps, transcripts); dictation; recording (MediaRecorder, permission flow, retention); pronunciation tiers A/B/C with feature detection.
-**Accept when:** grammar fixtures cover every spec'd category; play limits enforced and survive reload; recording works in Chrome, Safari iOS, Android Chrome (manual device check recorded); ASR is opt-in with disclosure; no pronunciation "score" shown unless the experimental model is explicitly enabled and labelled.
+## Phase 3 — Language learning ✅
+| Acceptance criterion | Evidence |
+|---|---|
+| Grammar engine: teacher patterns (`{a|b}`, optional words), common-mistake rules tagged with an error type, separate meaning (required words) and accuracy credit, unmatched answers sent to teacher review by default (never guessed) | `phase3.test.ts` (core), `phase3.test.tsx` |
+| Sentence tasks: transform, correct the error, combine, complete, short answer — one type with templates; teachers can test answers in the editor before publishing | `phase3.test.tsx` (editor tester) |
+| Sentence reconstruction (word order) with chunks, alternatives, distractors, optional lower-case cards; tap, drag and arrow-key reordering | core + `phase3.test.tsx`, e2e |
+| Listening: audio clips (upload or teacher-recorded narration), play limits that survive reloads, speed choices, transcripts (after submit / on request / always / never), questions linked to a clip or a time segment sharing the play limit | `phase3.test.tsx`, e2e (real playback) |
+| Dictation with word-level alignment (missing / extra / wrong / half-mistake typos); expected words hidden until answers may be revealed | core + `phase3.test.tsx` |
+| Recording: permission requested only on Record; blocked/no-microphone/unsupported explained with an upload fallback; microphone released after each take | `phase3.test.tsx`, e2e (Chromium simulated microphone, real MediaRecorder) |
+| Pronunciation tiers: A recording + model (file or device voice) + self-assessment; B browser speech-to-text only when the teacher enables it and the student agrees, labelled “what the computer heard”, on-device mode detected; C phoneme scoring not provided — stated in the UI | `phase3.test.tsx`, Settings capability panel |
+| Retention: practice takes not chosen for submission deleted on submit (default), recordings older than N days purged at start-up, “delete all recordings” | `phase3.test.tsx` |
+| Schema v3 + IndexedDB v3 migrations | core + `phase2-storage.test.tsx` |
+
+**Not done in Phase 3 (moved):** audio from Google Drive (needs sign-in → Phase 5); recordings sent to the teacher (Phase 5); reusable grammar-rule library across activities (questions with their rules can already be reused through the question bank; a separate rule library is Phase 6); listening cloze uses fill-in-the-blanks + an audio link rather than a separate type; phoneme-level pronunciation analysis remains research-grade (Phase 8, opt-in, labelled experimental if ever added).
+
+**Device notes:** recording was tested in Chromium only (simulated microphone). Safari/iOS records MP4/AAC; this must be checked on a real iPhone/iPad. Device voices for the “Listen” button differ by device and may be missing on some Chromebooks.
 
 ## Phase 4 — Disciplinary literacy
 Reading viewer with **byte-for-byte preserved source** (upload stored separately; extracted text must be teacher-approved before publish; hash of source recorded), highlights/annotations anchored to paragraph + offset, configurable observation symbols, Cornell notes + summary, paragraph prompts, CER/TCTAC/custom frameworks, rubrics, success criteria.

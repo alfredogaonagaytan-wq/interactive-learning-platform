@@ -10,6 +10,11 @@ import { sequencingPlugin } from './sequencing';
 import { markWordsPlugin } from './markWords';
 import { dragDropPlugin } from './dragDrop';
 import { hotspotPlugin } from './hotspot';
+import { audioPlugin } from './audio';
+import { dictationPlugin } from './dictation';
+import { sentenceResponsePlugin } from './sentenceResponse';
+import { sentenceBuilderPlugin } from './sentenceBuilder';
+import { speakingPlugin } from './speaking';
 import type { ItemPlugin } from './types';
 
 /** UI plugins keyed by item type. Adding a question type = core definition + one entry here. */
@@ -25,6 +30,11 @@ const plugins: Record<ItemType, ItemPlugin<any, any>> = {
   'mark-words': markWordsPlugin,
   'drag-drop': dragDropPlugin,
   hotspot: hotspotPlugin,
+  audio: audioPlugin,
+  dictation: dictationPlugin,
+  'sentence-response': sentenceResponsePlugin,
+  'sentence-builder': sentenceBuilderPlugin,
+  speaking: speakingPlugin,
 };
 
 export function getPlugin(type: ItemType): ItemPlugin<any, any> {
@@ -36,6 +46,8 @@ export const ADD_GROUPS: Array<{ label: string; types: ItemType[] }> = [
   { label: 'Choose', types: ['multiple-choice', 'true-false', 'hotspot'] },
   { label: 'Complete the text', types: ['fill-blanks', 'drag-words', 'dropdown-cloze', 'mark-words'] },
   { label: 'Arrange and sort', types: ['matching', 'sequencing', 'drag-drop'] },
+  { label: 'Grammar and writing', types: ['sentence-response', 'sentence-builder'] },
+  { label: 'Listening and speaking', types: ['audio', 'dictation', 'speaking'] },
   { label: 'Content', types: ['content'] },
 ];
 export const ADDABLE_TYPES: ItemType[] = ADD_GROUPS.flatMap((g) => g.types);

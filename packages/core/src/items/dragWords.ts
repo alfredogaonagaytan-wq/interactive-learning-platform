@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 import { roundScore, type PartResult, type ValidationIssue } from '../grading/types';
 import { SegmentSchema, type BlankSegment, type Segment } from './fillBlanks';
 import { outcome, outcomeFeedback, sameText, type ItemDefinition } from './definition';
@@ -12,6 +12,8 @@ import { outcome, outcomeFeedback, sameText, type ItemDefinition } from './defin
 export const DragWordsItemSchema = z.object({
   type: z.literal('drag-words'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema.default(''),
   segments: z.array(SegmentSchema).max(500),
   distractors: z.array(ShortTextSchema).max(30).default([]),

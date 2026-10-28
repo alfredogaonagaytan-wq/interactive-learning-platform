@@ -24,6 +24,8 @@ export const AttemptSchema = z.object({
   /** How many times "Check" was used per item (immediate feedback mode). */
   checks: z.record(z.string(), z.number().int().min(0)).default({}),
   hintsUsed: z.record(z.string(), z.number().int().min(0)).default({}),
+  /** Plays used per audio clip/question (listening play limits survive reloads). */
+  mediaPlays: z.record(z.string(), z.number().int().min(0)).default({}),
   startedAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
   submittedAt: z.iso.datetime().nullable().default(null),

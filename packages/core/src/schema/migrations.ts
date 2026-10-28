@@ -12,6 +12,8 @@ export type Migration = (raw: Record<string, unknown>) => Record<string, unknown
 export const activityMigrations: Record<number, Migration> = {
   // v1 -> v2 (Phase 2): question pools added; new item types are additive.
   1: (raw) => ({ ...raw, schemaVersion: 2, pools: Array.isArray(raw.pools) ? raw.pools : [] }),
+  // v2 -> v3 (Phase 3): audio cues on questions (default none) and language item types; additive.
+  2: (raw) => ({ ...raw, schemaVersion: 3 }),
 };
 
 export class SchemaVersionError extends Error {}

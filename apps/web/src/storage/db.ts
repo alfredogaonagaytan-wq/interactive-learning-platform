@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import { parseActivity, upgradePublishedVersion, type Activity, type Attempt, type Item, type MediaType, type PublishedVersion } from '@ilp/core';
+import { CURRENT_SCHEMA_VERSION, parseActivity, upgradePublishedVersion, type Activity, type Attempt, type Item, type MediaType, type PublishedVersion } from '@ilp/core';
 import { journalClearAll, journalClearFor } from './journal';
 
 /**
@@ -16,6 +16,20 @@ interface IlpDB extends DBSchema {
   assets: { key: string; value: StoredAsset };
   /** Teacher's reusable question bank. */
   bank: { key: string; value: BankEntry };
+  /** Student voice recordings. Kept on this device only, subject to retention settings. */
+  recordings: { key: string; value: StoredRecording; indexes: { byAttempt: string } };
+}
+
+export interface StoredRecording {
+  id: string;
+  attemptId: string;
+  activityId: string;
+  itemId: string;
+  targetId: string;
+  mime: string;
+  bytes: Uint8Array;
+  durationMs: number;
+  createdAt: string;
 }
 
 export interface StoredAsset {
@@ -36,7 +50,7 @@ export interface BankEntry {
 }
 
 export const DB_NAME = 'ilp';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 let dbPromise: Promise<IDBPDatabase<IlpDB>> | null = null;
 
 export function db(): Promise<IDBPDatabase<IlpDB>> {
@@ -54,6 +68,9 @@ export function db(): Promise<IDBPDatabase<IlpDB>> {
       if (oldVersion < 2) {
         database.createObjectStore('assets', { keyPath: 'id' });
         database.createObjectStore('bank', { keyPath: 'id' });
+      }
+      if (oldVersion < 3) {
+        database.createObjectStore('recordings', { keyPath: 'id' }).createIndex('byAttempt', 'attemptId');
       }
     },
     blocking() {
@@ -83,10 +100,10 @@ export async function getActivity(id: string): Promise<Activity | undefined> {
 
 /** Stored documents may predate the current schema; upgrade them in memory on read. */
 function upgrade(a: Activity): Activity {
-  return a.schemaVersion === 2 ? a : parseActivity(a);
+  return a.schemaVersion === CURRENT_SCHEMA_VERSION ? a : parseActivity(a);
 }
 function upgradeVersion(v: PublishedVersion): PublishedVersion {
-  return v.activity.schemaVersion === 2 ? v : upgradePublishedVersion(v);
+  return v.activity.schemaVersion === CURRENT_SCHEMA_VERSION ? v : upgradePublishedVersion(v);
 }
 export async function putActivity(a: Activity): Promise<void> {
   await (await db()).put('activities', a);
@@ -137,14 +154,17 @@ export async function deleteAttempts(activityId: string, mode: Attempt['mode']):
   const d = await db();
   const tx = d.transaction('attempts', 'readwrite');
   let n = 0;
+  const removed: string[] = [];
   for (const a of await tx.store.index('byActivity').getAll(activityId)) {
     if (a.mode === mode) {
       await tx.store.delete(a.id);
+      removed.push(a.id);
       n++;
     }
   }
   await tx.done;
   journalClearFor(activityId, mode);
+  for (const id of removed) await deleteRecordingsExcept(id, new Set());
   return n;
 }
 
@@ -177,7 +197,7 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
 /** Erase everything this app stored on this device (activities, versions, work, preferences). */
 export async function clearAllData(): Promise<void> {
   const d = await db();
-  const stores = ['activities', 'versions', 'attempts', 'meta', 'assets', 'bank'] as const;
+  const stores = ['activities', 'versions', 'attempts', 'meta', 'assets', 'bank', 'recordings'] as const;
   const tx = d.transaction([...stores], 'readwrite');
   await Promise.all([...stores.map((s) => tx.objectStore(s).clear()), tx.done]);
   journalClearAll();
@@ -206,4 +226,46 @@ export async function listBank(): Promise<BankEntry[]> {
 }
 export async function deleteBankEntry(id: string): Promise<void> {
   await (await db()).delete('bank', id);
+}
+
+// ---- Recordings (student audio; device-only) ----
+export async function putRecording(r: StoredRecording): Promise<void> {
+  await (await db()).put('recordings', r);
+}
+export async function getRecording(id: string): Promise<StoredRecording | undefined> {
+  return (await db()).get('recordings', id);
+}
+export async function listRecordings(attemptId?: string): Promise<StoredRecording[]> {
+  const d = await db();
+  const rows = attemptId ? await d.getAllFromIndex('recordings', 'byAttempt', attemptId) : await d.getAll('recordings');
+  return rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+export async function deleteRecording(id: string): Promise<void> {
+  await (await db()).delete('recordings', id);
+}
+/** Delete an attempt's recordings except the ones listed (e.g. the selected submissions). */
+export async function deleteRecordingsExcept(attemptId: string, keep: ReadonlySet<string>): Promise<number> {
+  let n = 0;
+  for (const r of await listRecordings(attemptId)) {
+    if (!keep.has(r.id)) {
+      await deleteRecording(r.id);
+      n++;
+    }
+  }
+  return n;
+}
+export async function deleteAllRecordings(): Promise<void> {
+  await (await db()).clear('recordings');
+}
+/** Retention: remove recordings older than `days`. Returns how many were removed. */
+export async function purgeRecordingsOlderThan(days: number, now = Date.now()): Promise<number> {
+  const cutoff = new Date(now - days * 86_400_000).toISOString();
+  let n = 0;
+  for (const r of await listRecordings()) {
+    if (r.createdAt < cutoff) {
+      await deleteRecording(r.id);
+      n++;
+    }
+  }
+  return n;
 }

@@ -13,6 +13,11 @@ import { sequencingDefinition } from './sequencing';
 import { markWordsDefinition } from './markWords';
 import { dragDropDefinition } from './dragDrop';
 import { hotspotDefinition } from './hotspot';
+import { sentenceResponseDefinition } from './sentenceResponse';
+import { sentenceBuilderDefinition } from './sentenceBuilder';
+import { audioDefinition } from './audio';
+import { dictationDefinition } from './dictation';
+import { speakingDefinition } from './speaking';
 
 export type { ItemDefinition, GradeContext } from './definition';
 
@@ -165,6 +170,11 @@ const registry: { [K in ItemType]: ItemDefinition<Extract<Item, { type: K }>, an
   'mark-words': markWordsDefinition,
   'drag-drop': dragDropDefinition,
   hotspot: hotspotDefinition,
+  'sentence-response': sentenceResponseDefinition,
+  'sentence-builder': sentenceBuilderDefinition,
+  audio: audioDefinition,
+  dictation: dictationDefinition,
+  speaking: speakingDefinition,
 };
 
 export function getItemDefinition<T extends ItemType>(type: T): ItemDefinition<Extract<Item, { type: T }>, any> {
@@ -186,6 +196,13 @@ export function validateActivity(activity: Activity): ValidationIssue[] {
     if (ids.has(item.id)) issues.push({ itemId: item.id, path: 'id', message: 'Duplicate item id.' });
     ids.add(item.id);
     issues.push(...getItemDefinition(item.type).validate(item as never));
+  }
+  const audioIds = new Set(activity.items.filter((i) => i.type === 'audio').map((i) => i.id));
+  for (const item of activity.items) {
+    const cue = 'audioCue' in item ? item.audioCue : null;
+    if (!cue) continue;
+    if (!audioIds.has(cue.audioItemId)) issues.push({ itemId: item.id, path: 'audioCue', message: 'This question is linked to an audio clip that no longer exists.' });
+    if (cue.start !== null && cue.end !== null && cue.end <= cue.start) issues.push({ itemId: item.id, path: 'audioCue', message: 'The audio segment ends before it starts.' });
   }
   const pooled = new Set<string>();
   for (const pool of activity.pools) {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, ImageRefSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, ImageRefSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 import { roundScore, type PartResult, type ValidationIssue } from '../grading/types';
 import { outcome, outcomeFeedback, penalisedFraction, type ItemDefinition } from './definition';
 
@@ -31,6 +31,8 @@ export const DraggableSchema = z.object({
 export const DragDropItemSchema = z.object({
   type: z.literal('drag-drop'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema.default(''),
   background: ImageRefSchema.nullable().default(null),
   zones: z.array(DropZoneSchema).max(40),

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, MatchOptionsSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, MatchOptionsSchema, PointsSchema, ShortTextSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 
 export const BlankSegmentSchema = z.object({
   kind: z.literal('blank'),
@@ -20,6 +20,8 @@ export type Segment = z.infer<typeof SegmentSchema>;
 export const FillBlanksItemSchema = z.object({
   type: z.literal('fill-blanks'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema.default(''),
   segments: z.array(SegmentSchema).max(500),
   match: MatchOptionsSchema.default({ caseSensitive: false, punctuationSensitive: false, accentSensitive: true, equivalences: [] }),

@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { Item, ItemResult, ItemType } from '@ilp/core';
+import type { Activity, Item, ItemResult, ItemType } from '@ilp/core';
 
 export interface EditorProps<I extends Item> {
   item: I;
@@ -23,6 +23,20 @@ export interface PlayerProps<I extends Item, R> {
   label: string;
   /** Student revealed the hint for this item (shows per-gap hints, etc.). */
   hintsShown?: boolean;
+  /** Attempt-level services (audio play counts, recordings). Absent in isolated renders. */
+  ctx?: PlayerContext;
+}
+
+export interface PlayerContext {
+  activity: Activity;
+  attemptId: string;
+  /** "student", "preview" or "teacher-preview". */
+  mode: string;
+  submitted: boolean;
+  /** Correct answers may be shown (teacher's answer-reveal setting). */
+  reveal: boolean;
+  plays: (key: string) => number;
+  countPlay: (key: string) => void;
 }
 
 /** UI half of a question-type plugin. The grading half lives in @ilp/core. */

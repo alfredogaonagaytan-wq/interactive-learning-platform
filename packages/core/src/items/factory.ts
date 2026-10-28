@@ -13,6 +13,7 @@ export function createItem(type: ItemType): Item {
       return {
         type,
         id,
+        audioCue: null,
         prompt: '',
         mode: 'single',
         choices: [
@@ -26,11 +27,12 @@ export function createItem(type: ItemType): Item {
         skills: [],
       };
     case 'true-false':
-      return { type, id, prompt: '', correct: true, trueLabel: 'True', falseLabel: 'False', points: 1, feedback: {}, skills: [] };
+      return { type, id, audioCue: null, prompt: '', correct: true, trueLabel: 'True', falseLabel: 'False', points: 1, feedback: {}, skills: [] };
     case 'fill-blanks':
       return {
         type,
         id,
+        audioCue: null,
         prompt: 'Complete the sentence.',
         segments: [],
         match: { caseSensitive: false, punctuationSensitive: false, accentSensitive: true, equivalences: [] },
@@ -40,12 +42,12 @@ export function createItem(type: ItemType): Item {
         skills: [],
       };
     case 'drag-words':
-      return { type, id, prompt: 'Drag the words into the gaps.', segments: [], distractors: [], points: 1, scoring: 'per-blank', feedback: {}, skills: [] };
+      return { type, id, audioCue: null, prompt: 'Drag the words into the gaps.', segments: [], distractors: [], points: 1, scoring: 'per-blank', feedback: {}, skills: [] };
     case 'dropdown-cloze':
-      return { type, id, prompt: 'Choose the correct word in each gap.', segments: [], points: 1, scoring: 'per-blank', feedback: {}, skills: [] };
+      return { type, id, audioCue: null, prompt: 'Choose the correct word in each gap.', segments: [], points: 1, scoring: 'per-blank', feedback: {}, skills: [] };
     case 'matching':
       return {
-        type, id, prompt: 'Match each item with its partner.',
+        type, id, audioCue: null, prompt: 'Match each item with its partner.',
         pairs: [
           { id: randomId('par'), left: '', leftImage: null, right: '' },
           { id: randomId('par'), left: '', leftImage: null, right: '' },
@@ -54,7 +56,7 @@ export function createItem(type: ItemType): Item {
       };
     case 'sequencing':
       return {
-        type, id, prompt: 'Put these in the correct order.', display: 'list',
+        type, id, audioCue: null, prompt: 'Put these in the correct order.', display: 'list',
         steps: [
           { id: randomId('seq'), text: '', image: null },
           { id: randomId('seq'), text: '', image: null },
@@ -63,12 +65,12 @@ export function createItem(type: ItemType): Item {
         points: 1, scoring: 'per-position', feedback: {}, skills: [],
       };
     case 'mark-words':
-      return { type, id, prompt: 'Click all the verbs.', text: '', points: 1, feedback: {}, skills: [] };
+      return { type, id, audioCue: null, prompt: 'Click all the verbs.', text: '', points: 1, feedback: {}, skills: [] };
     case 'drag-drop': {
       const a = randomId('zon');
       const b = randomId('zon');
       return {
-        type, id, prompt: 'Drag each card to the correct box.', background: null,
+        type, id, audioCue: null, prompt: 'Drag each card to the correct box.', background: null,
         zones: [
           { id: a, label: 'Group A', showLabel: true, x: 5, y: 10, w: 40, h: 30, capacity: null },
           { id: b, label: 'Group B', showLabel: true, x: 55, y: 10, w: 40, h: 30, capacity: null },
@@ -81,7 +83,23 @@ export function createItem(type: ItemType): Item {
       };
     }
     case 'hotspot':
-      return { type, id, prompt: '', image: null, hotspots: [], allowListAlternative: true, points: 1, feedback: {}, skills: [] };
+      return { type, id, audioCue: null, prompt: '', image: null, hotspots: [], allowListAlternative: true, points: 1, feedback: {}, skills: [] };
+    case 'sentence-response':
+      return {
+        type, id, audioCue: null, task: 'transform', prompt: 'Rewrite the sentence in the past simple.', source: '', starter: '', accepted: [''], errorRules: [], keywords: [], meaningWeight: 0.5,
+        match: { caseSensitive: true, punctuationSensitive: false, accentSensitive: true, equivalences: [] }, unmatched: 'review', points: 1, feedback: {}, skills: [],
+      };
+    case 'sentence-builder':
+      return { type, id, audioCue: null, prompt: 'Put the words in the correct order.', sentence: '', alternatives: [], distractors: [], lowercaseCards: false, match: { caseSensitive: false, punctuationSensitive: false, accentSensitive: true, equivalences: [] }, points: 1, scoring: 'all-or-nothing', feedback: {}, skills: ['word order'] };
+    case 'audio':
+      return { type, id, title: '', instructions: '', audio: null, maxPlays: null, speeds: [0.75, 1], transcript: 'after-submit' };
+    case 'dictation':
+      return { type, id, prompt: 'Listen and write what you hear.', audio: null, text: '', alternatives: [], maxPlays: 3, slowSpeed: true, typoHalf: true, match: { caseSensitive: false, punctuationSensitive: false, accentSensitive: true, equivalences: [] }, points: 1, feedback: {}, skills: ['listening', 'spelling'] };
+    case 'speaking':
+      return {
+        type, id, prompt: 'Listen, then record yourself saying each phrase.', language: 'en-US', targets: [{ id: randomId('seq'), text: '', focus: '', modelAudio: null }],
+        ttsFallback: true, modelBeforeRecording: true, maxRecordings: null, maxSeconds: 30, submission: 'none', selfAssessment: true, speechToText: false, scoring: 'completion', points: 1, feedback: {}, skills: ['pronunciation'],
+      };
   }
 }
 

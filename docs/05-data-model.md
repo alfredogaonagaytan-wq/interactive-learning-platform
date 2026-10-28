@@ -2,9 +2,9 @@
 
 All documents are JSON with `kind` and `schemaVersion`. IDs are random, prefixed and URL-safe (`act_…`, `itm_…`, `att_…`) and never derived from names. Source of truth for implemented types: `packages/core/src/schema/*.ts` (zod).
 
-## Implemented (Phases 1–2)
+## Implemented (Phases 1–3)
 
-### Activity (`ilp.activity`, schema 2) — the editable draft
+### Activity (`ilp.activity`, schema 3) — the editable draft
 | Field | Type | Notes |
 |---|---|---|
 | id, title, description, language (BCP 47), subject, gradeBand | string | |
@@ -28,7 +28,15 @@ All documents are JSON with `kind` and `schemaVersion`. IDs are random, prefixed
 - `drag-drop` — background ImageRef|null, zones[{id,label,showLabel,x,y,w,h (%),capacity}], draggables[{id,text,image,correctZoneIds[]}] (empty = distractor); response `{placements: draggableId→zoneId}`
 - `hotspot` — image, hotspots[{id,label,shape rect/ellipse,x,y,w,h,correct,feedback}], allowListAlternative; response `{point:{x,y}|null, hotspotId|null}`
 
-`ImageRef = {assetId, alt, decorative}`. Assets are content-addressed: `assetId = "ast_" + first 40 hex of SHA-256(bytes)`; allowed types are detected from file signatures (PNG, JPEG, GIF, WebP; audio types reserved for Phase 3). SVG is excluded.
+- `sentence-response` — task (transform/correct/combine/complete/answer), prompt, source, starter, accepted patterns[], errorRules[{pattern, errorType, feedback}], keywords[{forms[]}] + meaningWeight, match options, unmatched: review|incorrect
+- `sentence-builder` — sentence (" / " chunks), alternatives[], distractors[], lowercaseCards; response `{order: cardId[]}`
+- `audio` (not scored) — AudioRef, maxPlays, speeds[], transcript visibility
+- `dictation` — AudioRef, text, alternatives[], maxPlays, slowSpeed, typoHalf; word-level alignment grading
+- `speaking` — language (BCP 47 variety), targets[{text, focus, modelAudio}], ttsFallback, modelBeforeRecording, maxRecordings, maxSeconds, submission none/optional/required, selfAssessment, speechToText (opt-in), scoring completion/teacher-review/none; response per target `{recordings, selectedRecordingId, selfRating, heard}`
+
+Every question type also has `audioCue: {audioItemId, start, end} | null` linking it to an audio block (schema 3).
+
+`ImageRef = {assetId, alt, decorative}`. `AudioRef = {assetId, transcript}`. Assets are content-addressed: `assetId = "ast_" + first 40 hex of SHA-256(bytes)`; allowed types are detected from file signatures (PNG, JPEG, GIF, WebP; audio types reserved for Phase 3). SVG is excluded.
 
 ### PublishedVersion (`ilp.publishedVersion`) — immutable
 `{activityId, version, publishedAt, contentHash: "sha256:…", activity}`. Attempts and reports reference `(activityId, version, contentHash)`, so editing a draft never changes completed work.
@@ -36,7 +44,7 @@ All documents are JSON with `kind` and `schemaVersion`. IDs are random, prefixed
 ### Attempt (`ilp.attempt`)
 `{id, activityId, version, contentHash, mode: student|preview, assignmentId, attemptNumber, status, presentedItemIds[] | null, responses{itemId→response}, checks{}, hintsUsed{}, startedAt, updatedAt, submittedAt, sync}`
 
-`presentedItemIds` records exactly which questions (pools) in which order (shuffle) this attempt showed; grading and reports use only those. Selection is deterministic from the attempt id, so a broker can re-derive and verify it.
+`mediaPlays` counts plays per audio clip so limits survive reloads. `presentedItemIds` records exactly which questions (pools) in which order (shuffle) this attempt showed; grading and reports use only those. Selection is deterministic from the attempt id, so a broker can re-derive and verify it.
 
 ### ItemResult / ActivityResult
 `status: correct|partial|incorrect|unanswered|needs-review|ungraded`, `score`, `maxScore`, `parts[{partId, correct, given, reason}]` where reason ∈ capitalization, punctuation, accents, no-match, blank, wrong-choice, missed-choice.
@@ -49,8 +57,8 @@ Assignment/class/student number, activity title+version+hash, attempt, timestamp
 - **`.ilp.json` (format 1):** activities only; still imported.
 Both are corruption/tamper *detection*, not signatures.
 
-### Device storage (IndexedDB `ilp`, version 2)
-`activities`, `versions` (immutable), `attempts`, `meta`, `assets` (content-addressed bytes), `bank` (question bank entries `{id, item, tags, sourceActivityTitle, savedAt}`), plus a localStorage write-ahead journal for in-progress attempts.
+### Device storage (IndexedDB `ilp`, version 3)
+`activities`, `versions` (immutable), `attempts`, `meta`, `assets` (content-addressed bytes), `recordings` (student audio, device-only, retention-controlled; v3), `bank` (question bank entries `{id, item, tags, sourceActivityTitle, savedAt}`), plus a localStorage write-ahead journal for in-progress attempts.
 
 ## Planned (Phase 5–6) — stored in teacher Drive, never in a central DB
 

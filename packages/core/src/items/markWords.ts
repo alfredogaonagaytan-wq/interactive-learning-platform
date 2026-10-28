@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, PointsSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, PointsSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 import { roundScore, type PartResult } from '../grading/types';
 import { outcome, outcomeFeedback, penalisedFraction, type ItemDefinition } from './definition';
 
@@ -11,6 +11,8 @@ import { outcome, outcomeFeedback, penalisedFraction, type ItemDefinition } from
 export const MarkWordsItemSchema = z.object({
   type: z.literal('mark-words'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema.default(''),
   text: TextSchema,
   points: PointsSchema.default(1),

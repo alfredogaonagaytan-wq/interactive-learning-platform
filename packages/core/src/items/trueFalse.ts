@@ -1,9 +1,11 @@
 import { z } from 'zod';
-import { FeedbackSchema, IdSchema, PointsSchema, SkillTagsSchema, TextSchema } from '../schema/common';
+import { AudioCueField, FeedbackSchema, IdSchema, PointsSchema, SkillTagsSchema, TextSchema } from '../schema/common';
 
 export const TrueFalseItemSchema = z.object({
   type: z.literal('true-false'),
   id: IdSchema,
+  /** Optional link to an audio clip in this activity (listening tasks). */
+  audioCue: AudioCueField,
   prompt: TextSchema,
   correct: z.boolean(),
   /** Labels can be localised or changed (e.g. "Agree"/"Disagree"). */

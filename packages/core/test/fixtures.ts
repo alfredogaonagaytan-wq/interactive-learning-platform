@@ -9,7 +9,7 @@ export function blanks(answers: string[][], overrides: Partial<FillBlanksItem> =
   });
   return {
     type: 'fill-blanks',
-    id: 'itm_fb',
+    id: 'itm_fb', audioCue: null,
     prompt: 'Fill in the blanks.',
     segments,
     match: { caseSensitive: false, punctuationSensitive: false, accentSensitive: true, equivalences: [] },
@@ -24,7 +24,7 @@ export function blanks(answers: string[][], overrides: Partial<FillBlanksItem> =
 export function mc(overrides: Partial<MultipleChoiceItem> = {}): MultipleChoiceItem {
   return {
     type: 'multiple-choice',
-    id: 'itm_mc',
+    id: 'itm_mc', audioCue: null,
     prompt: 'Which are mammals?',
     mode: 'multiple',
     choices: [
@@ -43,7 +43,7 @@ export function mc(overrides: Partial<MultipleChoiceItem> = {}): MultipleChoiceI
 }
 
 export function tf(overrides: Partial<TrueFalseItem> = {}): TrueFalseItem {
-  return { type: 'true-false', id: 'itm_tf', prompt: 'Water boils at 100 °C at sea level.', correct: true, trueLabel: 'True', falseLabel: 'False', points: 1, feedback: {}, skills: ['states of matter'], ...overrides };
+  return { type: 'true-false', id: 'itm_tf', audioCue: null, prompt: 'Water boils at 100 °C at sea level.', correct: true, trueLabel: 'True', falseLabel: 'False', points: 1, feedback: {}, skills: ['states of matter'], ...overrides };
 }
 
 export function sampleActivity(): Activity {

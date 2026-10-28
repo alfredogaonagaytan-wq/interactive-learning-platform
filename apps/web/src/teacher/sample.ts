@@ -10,7 +10,7 @@ export function sampleActivity(): Activity {
   a.items = [
     { type: 'content', id: randomId('itm'), title: 'Before you start', body: 'Read each sentence carefully. Some verbs are regular (walk → walked) and some are irregular (go → went).' },
     {
-      type: 'fill-blanks', id: randomId('itm'), prompt: 'Write the past simple form of the verb in brackets.',
+      type: 'fill-blanks', id: randomId('itm'), audioCue: null, prompt: 'Write the past simple form of the verb in brackets.',
       segments: [
         { kind: 'text', text: 'Last Saturday, Mina (go) ' },
         { kind: 'blank', id: blk(), answers: ['went'], hint: 'go is irregular' },
@@ -24,7 +24,7 @@ export function sampleActivity(): Activity {
       points: 3, scoring: 'per-blank', feedback: { explanation: 'go → went and see → saw are irregular. watch → watched is regular (+ed).' }, skills: ['past simple', 'irregular verbs'],
     },
     {
-      type: 'multiple-choice', id: randomId('itm'), prompt: 'Which sentence is correct?', mode: 'single',
+      type: 'multiple-choice', id: randomId('itm'), audioCue: null, prompt: 'Which sentence is correct?', mode: 'single',
       choices: [
         { id: randomId('chc'), text: 'They didn’t visited the planetarium.', correct: false, feedback: 'After “didn’t”, use the base form of the verb.' },
         { id: randomId('chc'), text: 'They didn’t visit the planetarium.', correct: true },
@@ -33,7 +33,7 @@ export function sampleActivity(): Activity {
       shuffleChoices: true, points: 1, scoring: 'all-or-nothing', feedback: { hint: 'Negative past simple: did not + base verb.' }, skills: ['past simple', 'negatives'],
     },
     {
-      type: 'multiple-choice', id: randomId('itm'), prompt: 'Select all the irregular past simple verbs.', mode: 'multiple',
+      type: 'multiple-choice', id: randomId('itm'), audioCue: null, prompt: 'Select all the irregular past simple verbs.', mode: 'multiple',
       choices: [
         { id: randomId('chc'), text: 'bought', correct: true },
         { id: randomId('chc'), text: 'played', correct: false },
@@ -42,7 +42,7 @@ export function sampleActivity(): Activity {
       ],
       shuffleChoices: false, points: 2, scoring: 'partial', feedback: {}, skills: ['irregular verbs'],
     },
-    { type: 'true-false', id: randomId('itm'), prompt: '“Mina buyed a poster” is correct.', correct: false, trueLabel: 'Correct', falseLabel: 'Incorrect', points: 1, feedback: { incorrect: 'buy → bought (irregular).' }, skills: ['irregular verbs'] },
+    { type: 'true-false', id: randomId('itm'), audioCue: null, prompt: '“Mina buyed a poster” is correct.', correct: false, trueLabel: 'Correct', falseLabel: 'Incorrect', points: 1, feedback: { incorrect: 'buy → bought (irregular).' }, skills: ['irregular verbs'] },
   ];
   return a;
 }
@@ -59,7 +59,7 @@ export function sampleSortingActivity(): Activity {
   const decomp = id('zon');
   a.items = [
     {
-      type: 'drag-words', id: id('itm'), prompt: 'Drag the words into the gaps.',
+      type: 'drag-words', id: id('itm'), audioCue: null, prompt: 'Drag the words into the gaps.',
       segments: [
         { kind: 'text', text: 'Plants are ' }, { kind: 'blank', id: id('blk'), answers: ['producers'] },
         { kind: 'text', text: ' because they use energy from ' }, { kind: 'blank', id: id('blk'), answers: ['sunlight'] },
@@ -68,7 +68,7 @@ export function sampleSortingActivity(): Activity {
       distractors: ['carnivores', 'soil'], points: 3, scoring: 'per-blank', feedback: {}, skills: ['food chains vocabulary'],
     },
     {
-      type: 'dropdown-cloze', id: id('itm'), prompt: 'Choose the correct form.',
+      type: 'dropdown-cloze', id: id('itm'), audioCue: null, prompt: 'Choose the correct form.',
       segments: [
         { kind: 'text', text: 'A fungus ' }, { kind: 'blank', id: id('blk'), answers: ['breaks', 'break', 'breaking'] },
         { kind: 'text', text: ' down dead leaves. Bacteria ' }, { kind: 'blank', id: id('blk'), answers: ['are', 'is', 'be'] }, { kind: 'text', text: ' decomposers too.' },
@@ -76,7 +76,7 @@ export function sampleSortingActivity(): Activity {
       points: 2, scoring: 'per-blank', feedback: {}, skills: ['subject-verb agreement'],
     },
     {
-      type: 'matching', id: id('itm'), prompt: 'Match each word with its definition.',
+      type: 'matching', id: id('itm'), audioCue: null, prompt: 'Match each word with its definition.',
       pairs: [
         { id: id('par'), left: 'producer', leftImage: null, right: 'makes its own food' },
         { id: id('par'), left: 'consumer', leftImage: null, right: 'eats other living things' },
@@ -85,17 +85,17 @@ export function sampleSortingActivity(): Activity {
       distractors: ['lives only in water'], points: 3, scoring: 'per-pair', feedback: {}, skills: ['food chains vocabulary'],
     },
     {
-      type: 'sequencing', id: id('itm'), prompt: 'Put the food chain in order, starting with the energy source.', display: 'list',
+      type: 'sequencing', id: id('itm'), audioCue: null, prompt: 'Put the food chain in order, starting with the energy source.', display: 'list',
       steps: ['Sun', 'Grass', 'Grasshopper', 'Frog', 'Hawk'].map((t) => ({ id: id('seq'), text: t, image: null })),
       points: 2, scoring: 'per-position', feedback: { explanation: 'Energy flows from the sun to producers, then to consumers.' }, skills: ['food chains'],
     },
     {
-      type: 'mark-words', id: id('itm'), prompt: 'Click all the living things.',
+      type: 'mark-words', id: id('itm'), audioCue: null, prompt: 'Click all the living things.',
       text: 'In the pond, a *frog* sat on a rock while *algae* floated in the warm water and a *heron* waited nearby.',
       points: 3, feedback: {}, skills: ['living vs non-living'],
     },
     {
-      type: 'drag-drop', id: id('itm'), prompt: 'Sort each organism into its role.', background: null,
+      type: 'drag-drop', id: id('itm'), audioCue: null, prompt: 'Sort each organism into its role.', background: null,
       zones: [
         { id: prod, label: 'Producers', showLabel: true, x: 0, y: 0, w: 30, h: 30, capacity: null },
         { id: cons, label: 'Consumers', showLabel: true, x: 0, y: 0, w: 30, h: 30, capacity: null },
@@ -110,6 +110,47 @@ export function sampleSortingActivity(): Activity {
         { id: id('drg'), text: 'rock', image: null, correctZoneIds: [] },
       ],
       points: 5, scoring: 'per-item', feedback: { hint: 'One card is not a living thing — leave it in the bank.' }, skills: ['food chains'],
+    },
+  ];
+  return a;
+}
+
+/** Third fictional sample: grammar engine, sentence building and speaking (device voice, no audio files needed). */
+export function sampleLanguageActivity(): Activity {
+  const a = createActivity('Grammar lab: passive voice and word order');
+  a.description = 'Rewrite, correct and build sentences, then practise saying them.';
+  a.subject = 'English Language Acquisition';
+  a.gradeBand = 'Grade 8';
+  const id = (p: Parameters<typeof randomId>[0]) => randomId(p);
+  a.items = [
+    {
+      type: 'sentence-response', id: id('itm'), audioCue: null, task: 'transform', prompt: 'Rewrite the sentence in the passive voice.', source: 'Scientists discovered a new species of frog.', starter: '',
+      accepted: ['A new species of frog was discovered{| by scientists}.'],
+      errorRules: [
+        { id: id('chc'), pattern: 'A new species of frog {was discover|was discovering|is discovered|discovered}{| by scientists}.', errorType: 'verb form', feedback: 'The passive uses was/were + past participle (discovered).' },
+        { id: id('chc'), pattern: 'A new species of frog were discovered{| by scientists}.', errorType: 'subject-verb agreement', feedback: '“A new species” is singular, so use “was”.' },
+      ],
+      keywords: [{ id: id('chc'), forms: ['species'] }, { id: id('chc'), forms: ['frog'] }], meaningWeight: 0.5,
+      match: { caseSensitive: true, punctuationSensitive: false, accentSensitive: true, equivalences: [] }, unmatched: 'review', points: 2, feedback: {}, skills: ['passive voice'],
+    },
+    {
+      type: 'sentence-response', id: id('itm'), audioCue: null, task: 'correct', prompt: 'Find the mistake and write the sentence correctly.', source: 'The results of the experiment was surprising.', starter: '',
+      accepted: ['The results of the experiment were surprising.'],
+      errorRules: [{ id: id('chc'), pattern: 'The results of the experiment {was|is} surprising.', errorType: 'subject-verb agreement', feedback: 'The subject is “results” (plural), not “experiment”.' }],
+      keywords: [], meaningWeight: 0.5, match: { caseSensitive: true, punctuationSensitive: false, accentSensitive: true, equivalences: [] }, unmatched: 'review', points: 1, feedback: {}, skills: ['subject-verb agreement'],
+    },
+    {
+      type: 'sentence-builder', id: id('itm'), audioCue: null, prompt: 'Put the words in the correct order.', sentence: 'The samples / were collected / near / the river / last week.',
+      alternatives: ['Last week the samples were collected near the river.'], distractors: ['was'], lowercaseCards: true,
+      match: { caseSensitive: false, punctuationSensitive: false, accentSensitive: true, equivalences: [] }, points: 1, scoring: 'all-or-nothing', feedback: {}, skills: ['word order', 'passive voice'],
+    },
+    {
+      type: 'speaking', id: id('itm'), prompt: 'Listen to each sentence, then record yourself. Compare your recording with the model.', language: 'en-US',
+      targets: [
+        { id: id('seq'), text: 'The results were surprising.', focus: 'Stress: reSULTS, surPRISing', modelAudio: null },
+        { id: id('seq'), text: 'A new species was discovered.', focus: 'Final /d/ in “discovered”', modelAudio: null },
+      ],
+      ttsFallback: true, modelBeforeRecording: true, maxRecordings: null, maxSeconds: 20, submission: 'optional', selfAssessment: true, speechToText: false, scoring: 'completion', points: 1, feedback: {}, skills: ['pronunciation'],
     },
   ];
   return a;

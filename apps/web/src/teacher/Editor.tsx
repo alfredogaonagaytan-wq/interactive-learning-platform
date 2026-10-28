@@ -250,6 +250,7 @@ export function Editor({ id }: { id: string }) {
               item={sel}
               language={activity.language}
               pools={activity.pools}
+              audioItems={activity.items.filter((i): i is Extract<Item, { type: 'audio' }> => i.type === 'audio')}
               onPool={(poolId) => setItemPool(sel.id, poolId)}
               onChange={setItem}
               onDuplicate={() => duplicateItem(sel)}
@@ -276,10 +277,11 @@ function labelFor(a: Activity, itemId: string): string {
   return 'Item';
 }
 
-function ItemPanel({ item, language, pools, onPool, onChange, onDuplicate, onDelete, onSaveToBank }: {
+function ItemPanel({ item, language, pools, audioItems, onPool, onChange, onDuplicate, onDelete, onSaveToBank }: {
   item: Item;
   language: string;
   pools: Pool[];
+  audioItems: Array<Extract<Item, { type: 'audio' }>>;
   onPool: (poolId: string | null) => void;
   onChange: (i: Item) => void;
   onDuplicate: () => void;
@@ -308,8 +310,32 @@ function ItemPanel({ item, language, pools, onPool, onChange, onDuplicate, onDel
           options={[{ value: '', label: 'Always shown (not in a pool)' }, ...pools.map((p) => ({ value: p.id, label: `${p.name} (draw ${p.draw} of ${p.itemIds.length})` }))]}
         />
       )}
+      {'audioCue' in item && audioItems.length > 0 && <AudioCueEditor item={item} audioItems={audioItems} onChange={onChange} />}
       <Editor item={item} onChange={onChange} language={language} />
     </>
+  );
+}
+
+function AudioCueEditor({ item, audioItems, onChange }: { item: Item & { audioCue: { audioItemId: string; start: number | null; end: number | null } | null }; audioItems: Array<Extract<Item, { type: 'audio' }>>; onChange: (i: Item) => void }) {
+  const cue = item.audioCue;
+  const set = (patch: Partial<NonNullable<typeof cue>> | null) => onChange({ ...item, audioCue: patch === null ? null : { audioItemId: audioItems[0]!.id, start: null, end: null, ...cue, ...patch } } as Item);
+  return (
+    <fieldset className="subfieldset">
+      <legend>Listening link</legend>
+      <Select
+        label="Audio clip for this question"
+        value={cue?.audioItemId ?? ''}
+        onChange={(v) => set(v ? { audioItemId: v } : null)}
+        options={[{ value: '', label: 'None' }, ...audioItems.map((a, i) => ({ value: a.id, label: a.title || `Audio clip ${i + 1}` }))]}
+        hint="Adds a “Play this part” control to the question. Plays count toward the clip’s limit."
+      />
+      {cue && (
+        <div className="grid-2">
+          <NumberField label="Start (seconds)" value={cue.start} min={0} max={36000} step={0.5} nullable nullLabel="From the beginning" onChange={(start) => set({ start })} />
+          <NumberField label="End (seconds)" value={cue.end} min={0} max={36000} step={0.5} nullable nullLabel="To the end" onChange={(end) => set({ end })} />
+        </div>
+      )}
+    </fieldset>
   );
 }
 

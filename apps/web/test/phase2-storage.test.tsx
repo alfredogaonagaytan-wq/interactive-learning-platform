@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { openDB } from 'idb';
-import { checkMedia, createActivity, readAnyPackage, type Activity } from '@ilp/core';
+import { checkMedia, createActivity, CURRENT_SCHEMA_VERSION, readAnyPackage, type Activity } from '@ilp/core';
 import { closeDb, DB_NAME, getActivity, getAsset, listBank, putActivity, putAsset } from '../src/storage/db';
 import { exportPackage, importAsDrafts, importForStudent } from '../src/storage/library';
 import { Editor } from '../src/teacher/Editor';
@@ -14,7 +14,7 @@ async function activityWithImage(): Promise<{ a: Activity; assetId: string }> {
   const { id, mime } = await checkMedia(PNG);
   await putAsset({ id, mime, bytes: PNG, name: 'x.png', addedAt: new Date().toISOString() });
   const a = createActivity('With image');
-  a.items = [{ type: 'matching', id: 'itm_m', prompt: '', distractors: [], points: 1, scoring: 'per-pair', feedback: {}, skills: [], pairs: [
+  a.items = [{ type: 'matching', id: 'itm_m', audioCue: null, prompt: '', distractors: [], points: 1, scoring: 'per-pair', feedback: {}, skills: [], pairs: [
     { id: 'p1', left: '', leftImage: { assetId: id, alt: 'a red apple', decorative: false }, right: 'apple' },
     { id: 'p2', left: 'banana', leftImage: null, right: 'yellow fruit' },
   ] }];
@@ -48,7 +48,7 @@ describe('zip export / import with media', () => {
 });
 
 describe('IndexedDB upgrade from the Phase 1 database', () => {
-  it('adds new stores and upgrades stored activities to schema 2', async () => {
+  it('adds new stores and upgrades stored activities to the current schema', async () => {
     await closeDb();
     await new Promise<void>((res) => { const r = indexedDB.deleteDatabase(DB_NAME); r.onsuccess = () => res(); });
     const v1 = { ...sampleActivity(), schemaVersion: 1 } as Record<string, unknown>;
@@ -66,7 +66,7 @@ describe('IndexedDB upgrade from the Phase 1 database', () => {
     await old.put('activities', v1);
     old.close();
     const upgraded = await getActivity(v1.id as string);
-    expect(upgraded?.schemaVersion).toBe(2);
+    expect(upgraded?.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(upgraded?.pools).toEqual([]);
     expect(await listBank()).toEqual([]); // new store exists
   });

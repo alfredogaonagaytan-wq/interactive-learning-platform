@@ -55,7 +55,7 @@ describe('schema migration v1 -> v2', () => {
   it('upgrades a Phase 1 activity', () => {
     const v1 = { ...sampleActivity(), schemaVersion: 1 } as Record<string, unknown>;
     delete v1.pools;
-    expect(migrateActivityJson(v1)).toMatchObject({ schemaVersion: 2, pools: [] });
+    expect(migrateActivityJson(v1)).toMatchObject({ schemaVersion: 3, pools: [] });
     expect(parseActivity(v1).pools).toEqual([]);
   });
 });
@@ -74,7 +74,7 @@ describe('zip packages', () => {
     const a = createActivity('Labelled cell');
     const id = await assetIdFor(PNG);
     a.items = [{
-      type: 'hotspot', id: 'itm_h', prompt: 'Click the nucleus', image: { assetId: id, alt: 'Cell', decorative: false }, allowListAlternative: true, points: 1, feedback: {}, skills: [],
+      type: 'hotspot', id: 'itm_h', audioCue: null, prompt: 'Click the nucleus', image: { assetId: id, alt: 'Cell', decorative: false }, allowListAlternative: true, points: 1, feedback: {}, skills: [],
       hotspots: [{ id: 'h1', label: 'Nucleus', shape: 'rect', x: 10, y: 10, w: 10, h: 10, correct: true }],
     }];
     return { a, id };

@@ -138,7 +138,7 @@ describe('find the hotspot', () => {
     const { id, mime } = await checkMedia(PNG);
     await putAsset({ id, mime, bytes: PNG, name: 'cell.png', addedAt: new Date().toISOString() });
     return {
-      type: 'hotspot', id: randomId('itm'), prompt: 'Click the nucleus', image: { assetId: id, alt: 'Diagram of an animal cell', decorative: false }, allowListAlternative: true, points: 1, feedback: {}, skills: [],
+      type: 'hotspot', id: randomId('itm'), audioCue: null, prompt: 'Click the nucleus', image: { assetId: id, alt: 'Diagram of an animal cell', decorative: false }, allowListAlternative: true, points: 1, feedback: {}, skills: [],
       hotspots: [
         { id: 'h1', label: 'Nucleus', shape: 'ellipse', x: 35, y: 35, w: 30, h: 30, correct: true },
         { id: 'h2', label: 'Membrane', shape: 'rect', x: 0, y: 0, w: 100, h: 10, correct: false },
@@ -167,7 +167,7 @@ describe('find the hotspot', () => {
 
 describe('question pools in the player', () => {
   it('shows only the drawn questions and stores the selection with the attempt', async () => {
-    const qs: Item[] = Array.from({ length: 5 }, (_, i) => ({ type: 'true-false', id: `itm_q${i}`, prompt: `Statement ${i}`, correct: true, trueLabel: 'True', falseLabel: 'False', points: 1, feedback: {}, skills: [] }));
+    const qs: Item[] = Array.from({ length: 5 }, (_, i) => ({ type: 'true-false', id: `itm_q${i}`, audioCue: null, prompt: `Statement ${i}`, correct: true, trueLabel: 'True', falseLabel: 'False', points: 1, feedback: {}, skills: [] }));
     const v = await play(qs, (a) => { a.pools = [{ id: 'pol_a', name: 'Facts', draw: 2, itemIds: qs.map((q) => q.id) }]; });
     expect(await screen.findAllByRole('group', { name: /Statement/ })).toHaveLength(2);
     const a = await saved(v);

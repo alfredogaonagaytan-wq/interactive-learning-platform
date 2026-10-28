@@ -9,7 +9,7 @@ const fb = { feedback: {}, skills: ['vocab'] };
 
 describe('drag the words', () => {
   const item: DragWordsItem = {
-    type: 'drag-words', id: 'itm_dw', prompt: '', distractors: ['go', 'the'], points: 2, scoring: 'per-blank', ...fb,
+    type: 'drag-words', id: 'itm_dw', audioCue: null, prompt: '', distractors: ['go', 'the'], points: 2, scoring: 'per-blank', ...fb,
     segments: [
       { kind: 'text', text: 'I ' }, { kind: 'blank', id: 'b1', answers: ['went'] },
       { kind: 'text', text: ' to ' }, { kind: 'blank', id: 'b2', answers: ['the'] }, { kind: 'text', text: ' park.' },
@@ -31,7 +31,7 @@ describe('drag the words', () => {
 
 describe('dropdown cloze', () => {
   const item: DropdownClozeItem = {
-    type: 'dropdown-cloze', id: 'itm_dd', prompt: '', points: 1, scoring: 'all-or-nothing', ...fb,
+    type: 'dropdown-cloze', id: 'itm_dd', audioCue: null, prompt: '', points: 1, scoring: 'all-or-nothing', ...fb,
     segments: [{ kind: 'text', text: 'She ' }, { kind: 'blank', id: 'b1', answers: ['has', 'have', 'having'] }, { kind: 'text', text: ' a cat.' }],
   };
   const def = getItemDefinition('dropdown-cloze');
@@ -48,7 +48,7 @@ describe('dropdown cloze', () => {
 
 describe('matching', () => {
   const item: MatchingItem = {
-    type: 'matching', id: 'itm_m', prompt: '', distractors: ['carnivore'], points: 3, scoring: 'per-pair', ...fb,
+    type: 'matching', id: 'itm_m', audioCue: null, prompt: '', distractors: ['carnivore'], points: 3, scoring: 'per-pair', ...fb,
     pairs: [
       { id: 'p1', left: 'producer', leftImage: null, right: 'makes its own food' },
       { id: 'p2', left: 'consumer', leftImage: null, right: 'eats other organisms' },
@@ -71,7 +71,7 @@ describe('matching', () => {
 
 describe('sequencing', () => {
   const item: SequencingItem = {
-    type: 'sequencing', id: 'itm_s', prompt: '', display: 'paragraph', points: 4, scoring: 'per-position', ...fb,
+    type: 'sequencing', id: 'itm_s', audioCue: null, prompt: '', display: 'paragraph', points: 4, scoring: 'per-position', ...fb,
     steps: ['a', 'b', 'c', 'd'].map((t) => ({ id: `s${t}`, text: `step ${t}`, image: null })),
   };
   const def = getItemDefinition('sequencing');
@@ -99,7 +99,7 @@ describe('mark the words', () => {
     expect(words.filter((w) => w.kind === 'word' && w.correct).map((w) => w.text)).toEqual(['ran', 'jumped']);
     expect(toks.map((t) => t.text).join('')).toBe('The dog ran, then jumped! 5 * 2');
   });
-  const item: MarkWordsItem = { type: 'mark-words', id: 'itm_mw', prompt: 'Click the verbs', text: 'She *sings* and *dances* well.', points: 2, ...fb };
+  const item: MarkWordsItem = { type: 'mark-words', id: 'itm_mw', audioCue: null, prompt: 'Click the verbs', text: 'She *sings* and *dances* well.', points: 2, ...fb };
   const def = getItemDefinition('mark-words');
   it('wrong clicks cancel right ones, never below zero', () => {
     expect(def.grade(item, { selected: [1, 3] }, ctx).status).toBe('correct');
@@ -114,7 +114,7 @@ describe('mark the words', () => {
 
 describe('drag and drop zones', () => {
   const item: DragDropItem = {
-    type: 'drag-drop', id: 'itm_dd', prompt: '', background: null, points: 3, scoring: 'per-item', ...fb,
+    type: 'drag-drop', id: 'itm_dd', audioCue: null, prompt: '', background: null, points: 3, scoring: 'per-item', ...fb,
     zones: [
       { id: 'z1', label: 'Metals', showLabel: true, x: 0, y: 0, w: 50, h: 50, capacity: null },
       { id: 'z2', label: 'Non-metals', showLabel: true, x: 50, y: 0, w: 50, h: 50, capacity: null },
@@ -141,7 +141,7 @@ describe('drag and drop zones', () => {
 
 describe('find the hotspot', () => {
   const item: HotspotItem = {
-    type: 'hotspot', id: 'itm_h', prompt: 'Click the nucleus', image: { assetId: 'ast_cell', alt: 'Animal cell diagram', decorative: false }, allowListAlternative: true, points: 1, ...fb,
+    type: 'hotspot', id: 'itm_h', audioCue: null, prompt: 'Click the nucleus', image: { assetId: 'ast_cell', alt: 'Animal cell diagram', decorative: false }, allowListAlternative: true, points: 1, ...fb,
     hotspots: [
       { id: 'h1', label: 'Nucleus', shape: 'ellipse', x: 40, y: 40, w: 20, h: 20, correct: true },
       { id: 'h2', label: 'Cell membrane', shape: 'rect', x: 0, y: 0, w: 100, h: 10, correct: false, feedback: 'That is the membrane.' },
