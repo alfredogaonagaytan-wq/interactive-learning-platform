@@ -1,0 +1,3 @@
+# Note on the Flint "Observation Notes" examples
+
+The two reference activities (Toulmin notes for ELA, CER for science on app.flintk12.com) could not be opened from the build environment because the host is blocked by the session's network policy. The Phase 4 design will follow the spec (original reading on one side, observation/notes panel on the other, configurable symbols, paragraph prompts, final CER/TCTAC/Toulmin framework). To match the ELA example's look, share screenshots (or allow the domain) before Phase 4 starts; the framework editor will include a **Toulmin** preset (claim, grounds/evidence, warrant, backing, qualifier, rebuttal) alongside CER and TCTAC.

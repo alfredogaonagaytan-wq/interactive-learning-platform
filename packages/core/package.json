@@ -1,0 +1,14 @@
+{
+  "name": "@ilp/core",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Activity schema, deterministic grading engine, reports and portable packages. Framework-free so it can run in the browser, in tests, and in a submission broker.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
+  }
+}
