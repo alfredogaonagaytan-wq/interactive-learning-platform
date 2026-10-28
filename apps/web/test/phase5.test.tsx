@@ -122,7 +122,7 @@ afterEach(() => {
 
 function teacherSetup(opts: { grading?: 'client' | 'hidden' } = {}) {
   const t = broker.signIn('teacher@example.com', 'sub-teacher');
-  broker.call('whoami', t); // the teacher's "Connect"
+  broker.connect(t); // the teacher's "Connect" with the code from setup()
   const classId = broker.call('classes.create', t, { name: 'Grade 7 ELA' }).result.classId;
   broker.call('roster.put', t, { classId, rows: [{ studentNumber: 'S07', email: 'student7@example.com' }] });
   const a = testActivity();
@@ -226,7 +226,7 @@ describe('sign-in tokens are bound to one submission service', { timeout: 15_000
   it('each service only ever receives tokens minted for itself', async () => {
     const { assignmentId } = teacherSetup();
     const t2 = broker2.signIn('teacher2@example.com', 'sub-t2');
-    broker2.call('whoami', t2);
+    broker2.connect(t2);
     const c2 = broker2.call('classes.create', t2, { name: 'Other class' }).result.classId;
     broker2.call('roster.put', t2, { classId: c2, rows: [{ studentNumber: 'B07', email: 'student7@example.com' }] });
     const a2 = broker2.call('assignments.create', t2, { classId: c2, activity: testActivity(), version: 1, contentHash: 'x' }).result.id;

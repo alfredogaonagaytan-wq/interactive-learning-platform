@@ -16,6 +16,9 @@ import { startOutboxWorker } from '../google/outbox';
 import { setDefaultService, trySilentSignIn } from '../google/gis';
 import { getBrokerId } from '../google/brokerSetting';
 import { ServiceSignIn } from '../google/SignIn';
+import { isSimulation } from '../sim/mode';
+import { restoreSimIdentity } from '../sim/acting';
+import { SimulationBanner, SimulationPage } from '../sim/SimulationPage';
 
 function Home() {
   return (
@@ -47,10 +50,12 @@ export function App() {
 
   useEffect(() => {
     // Sign-ins are minted per submission service; a teacher's default is their own service.
-    void getBrokerId().then((id) => {
-      setDefaultService(id ?? null);
-      return trySilentSignIn();
-    });
+    if (isSimulation()) void restoreSimIdentity(); // no Google scripts are loaded in Simulation mode
+    else
+      void getBrokerId().then((id) => {
+        setDefaultService(id ?? null);
+        return trySilentSignIn();
+      });
     return startOutboxWorker();
   }, []);
 
@@ -68,6 +73,7 @@ export function App() {
   else if (section === 'classes') page = <Classes />;
   else if (section === 'setup-service') page = <ServiceSetup />;
   else if (section === 'a' && a) page = <AssignmentPage assignmentId={a} brokerId={query.get('b')} />;
+  else if (section === 'simulation') page = <SimulationPage />;
   else page = <Home />;
 
   const area = section === 'teacher' || section === 'classes' || section === 'setup-service' ? 'teacher' : section === 'student' || section === 'play' || section === 'a' ? 'student' : section;
@@ -84,10 +90,12 @@ export function App() {
           <a href="#/classes" aria-current={section === 'classes' ? 'page' : undefined}>Classes</a>
           <a href="#/student" aria-current={area === 'student' ? 'page' : undefined}>Student</a>
           <a href="#/settings" aria-current={area === 'settings' ? 'page' : undefined}>Settings</a>
+          {isSimulation() && <a href="#/simulation" aria-current={section === 'simulation' ? 'page' : undefined}>Simulation</a>}
         </nav>
         {!online && <span className="badge warn offline-badge" role="status">Offline</span>}
-        {profile && <a href="#/settings" className="account-chip" title="Google account">{profile.email}</a>}
+        {profile && <a href={profile.simulated ? '#/simulation' : '#/settings'} className="account-chip" title={profile.simulated ? 'Fictional person (Simulation)' : 'Google account'}>{profile.simulated ? `${profile.name} (fictional)` : profile.email}</a>}
       </header>
+      {isSimulation() && <SimulationBanner />}
       <UpdateBanner />
       <ServiceSignIn />
       <main id="main" tabIndex={-1}>{page}</main>

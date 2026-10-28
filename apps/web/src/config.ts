@@ -11,4 +11,4 @@ export const GOOGLE_APP_ID = GOOGLE_CLIENT_ID.split('-')[0] ?? '';
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 /** Version of the submission service (services/submission-broker/src/Code.js) this app is built for. */
-export const BROKER_VERSION = '0.5.1';
+export const BROKER_VERSION = '0.6.0';

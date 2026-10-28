@@ -1,7 +1,7 @@
 {
   "name": "interactive-learning-platform",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Open-source, local-first interactive learning activities for classrooms (H5P-style), with Google Drive submissions.",
   "license": "MIT",
   "type": "module",
@@ -14,7 +14,7 @@
     "dev": "npm run dev -w @ilp/web",
     "build": "npm run build -w @ilp/web",
     "preview": "npm run preview -w @ilp/web",
-    "typecheck": "tsc -p packages/core && tsc -p apps/web",
+    "typecheck": "node services/submission-broker/build.mjs && tsc -p packages/core && tsc -p apps/web",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",

@@ -194,3 +194,14 @@ Steps for these are in `docs/12-phase5-live-test.md` (section "Security checks")
 6. Set `ALLOWED_DOMAIN` to the school domain.
 7. Publishing the OAuth app beyond "Testing" (Google verification), when IT approves.
 8. An independent review of this audit and of the live results.
+
+## Addendum — service 0.6.0 (branch `drive-file-storage`, not deployed)
+- **M-5 resolved in code (confirm live):** the service no longer requests `drive`, `spreadsheets` or `userinfo.email`. It
+  uses the Drive API v3 and Sheets API v4 with `drive.file`, so Google limits it to the files it creates (doc 15). 20 new
+  tests run it against an emulator that enforces `drive.file` per file; live checks N1–N8 in doc 12.
+- **Teacher identity** now comes from a one-time connection code (80 bits, stored only as a hash, single use, locks after
+  10 wrong attempts) instead of the owner's email from `Session.getEffectiveUser()`; still pinned to the Google account id.
+- **Formula injection** is now prevented by writing sheet values RAW (stored exactly as given).
+- **New low finding, fixed:** the app loaded Google's sign-in script on every visit, even on devices that never used Google
+  sign-in; now only after a first Google sign-in.
+- All 31 attack tests pass on 0.6.0. One assertion changed by design (the expected scope list in the code-integrity test).

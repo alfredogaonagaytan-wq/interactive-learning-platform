@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type ImgHTMLAttributes } from 'react';
 import type { ImageRef } from '@ilp/core';
 import { addImageFile, useAssetUrl } from '../storage/assets';
+import { DriveImportButton } from '../google/DriveImportButton';
 
 /** Render a stored image. Missing assets show a visible placeholder instead of a broken image. */
 export function AssetImage({ image, className, ...rest }: { image: ImageRef } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'>) {
@@ -22,6 +23,21 @@ export function ImageField({ label, value, onChange, allowDecorative = true }: {
       {value && <AssetImage image={value} className="image-preview" />}
       <div className="row">
         <button type="button" className="secondary" disabled={busy} onClick={() => file.current?.click()}>{value ? 'Replace image…' : 'Choose image…'}</button>
+        <DriveImportButton
+          mimeTypes="image/png,image/jpeg,image/gif,image/webp"
+          title="Choose an image"
+          disabled={busy}
+          onError={setError}
+          onFile={async (d) => {
+            setError(null);
+            try {
+              const assetId = await addImageFile(new File([d.bytes as Uint8Array<ArrayBuffer>], d.name, { type: d.mime }));
+              onChange({ assetId, alt: value?.alt ?? '', decorative: value?.decorative ?? false });
+            } catch (err) {
+              setError((err as Error).message);
+            }
+          }}
+        />
         {value && <button type="button" className="ghost danger" onClick={() => onChange(null)}>Remove</button>}
         <input
           ref={file}

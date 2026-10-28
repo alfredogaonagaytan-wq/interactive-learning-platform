@@ -28,7 +28,7 @@ let classId: string;
 async function setupClass() {
   b = createBroker({ teacher: TEACHER, clientId: CLIENT, brokerId: 'AKfycbTEST_broker_0123456789' });
   teacher = b.signIn(TEACHER, 'sub-teacher');
-  expect(b.call('whoami', teacher).ok).toBe(true); // "Connect": records this service's id
+  expect(b.connect(teacher).ok).toBe(true); // "Connect" with the code from setup(): records this service's id
   classId = b.call('classes.create', teacher, { name: 'Grade 7 Science', section: 'A' }).result.classId;
   const r = b.call('roster.put', teacher, { classId, rows: [
     { studentNumber: 'S01', name: 'Test Student One', email: 'student1@example.com' },
@@ -79,7 +79,7 @@ describe('roster', () => {
   });
   it('a client cannot set the Google account binding', () => {
     b.call('roster.put', teacher, { classId, rows: [{ studentNumber: 'S01', email: 'student1@example.com', googleSub: 'attacker' }] });
-    const rows = b.sheets.values().next().value!.getSheetByName('Roster')!.rows;
+    const rows = b.emu.files().find((f) => f.sheets)!.sheets!.find((s) => s.title === 'Roster')!.rows;
     expect(rows.flat()).not.toContain('attacker');
   });
 });
@@ -140,9 +140,9 @@ describe('submissions', () => {
     expect(r.result).toMatchObject({ studentNumber: 'S01', score: 2, maxScore: 3, duplicate: false, late: false });
     const fields = ReceiptFields.map((k) => `${k}=${r.result[k] ?? ''}`).join('&');
     expect(r.result.signature).toBe(createHmac('sha256', b.props.get('HMAC_SECRET')!).update(fields).digest('hex'));
-    const report = b.drive.allFiles().find((f) => f.getName() === 'S01__att_one.json')!;
-    expect(report.parent!.path()).toMatch(/Classes\/Grade 7 Science A \(cls_[a-z0-9]+\)\/Student Reports\/Fictional quiz \(asg_[a-z0-9]+\)$/);
-    const doc = JSON.parse(report.getBlob().getDataAsString());
+    const report = b.files().find((f) => f.name === 'S01__att_one.json')!;
+    expect(report.path).toMatch(/^My Drive\/Interactive Learning Platform\/Classes\/Grade 7 Science A \(cls_[a-z0-9]+\)\/Student submissions\/Fictional quiz \(asg_[a-z0-9]+\)\/S01__att_one\.json$/);
+    const doc = JSON.parse(report.text());
     expect(doc.report.integrity.verified).toBe(true);
     expect(doc.report.studentNumber).toBe('S01');
     expect(JSON.stringify(doc)).not.toMatch(/Test Student One|student1@example\.com/); // no names or emails in reports
@@ -183,8 +183,8 @@ describe('submissions', () => {
     const asg = b.call('assignments.create', teacher, { classId, activity: a, version: 1, contentHash: 'x' }).result;
     const st = b.signIn('student1@example.com', 'sub-1');
     b.call('student.submit', st, payload(asg.id, 'att_pool', right, null, { presentedItemIds: ['itm_q1', 'itm_q2', 'itm_fb'] }));
-    const file = b.drive.allFiles().find((f) => f.getName() === 'S01__att_pool.json')!;
-    const doc = JSON.parse(file.getBlob().getDataAsString());
+    const file = b.files().find((f) => f.name === 'S01__att_pool.json')!;
+    const doc = JSON.parse(file.text());
     expect(doc.payload.presentedItemIds).toEqual(selectItemIds(a, 'att_pool'));
     expect(doc.report.totals.maxScore).toBe(gradeActivity(a, right, selectItemIds(a, 'att_pool')).maxScore);
   });
@@ -195,8 +195,8 @@ describe('submissions', () => {
     const asg = b.call('assignments.create', teacher, { classId, activity: a, version: 1, contentHash: 'x' }).result;
     const st = b.signIn('student1@example.com', 'sub-1');
     b.call('student.submit', st, payload(asg.id, 'att_rec', right, null, { recordings: [{ id: 'rec_1', itemId: 'itm_sp', targetId: 't1', mime: 'audio/webm', base64: Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(40)]).toString('base64') }] }));
-    const rec = b.drive.allFiles().find((f) => f.getName().startsWith('S01__att_rec__itm_sp__t1'))!;
-    expect(rec.parent!.path()).toMatch(/Recordings\/Fictional quiz/);
+    const rec = b.files().find((f) => f.name.startsWith('S01__att_rec__itm_sp__t1'))!;
+    expect(rec.path).toMatch(/\/Recordings\/Fictional quiz/);
   });
 
   it('hides scores in receipts when the teacher chooses', () => {

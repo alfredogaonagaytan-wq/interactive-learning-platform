@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { renderSignInButton, signOut } from './gis';
 import { useAuth } from './useAuth';
+import { isSimulation } from '../sim/mode';
 
 /** Google's own sign-in button (rendered by Google Identity Services). */
 /** `brokerId`: the submission service this sign-in is for (default: the teacher's own). */
@@ -20,6 +21,12 @@ export function SignInButton({ brokerId }: { brokerId?: string | null }) {
 
 export function AccountPanel({ purpose }: { purpose: string }) {
   const { profile } = useAuth();
+  if (isSimulation())
+    return (
+      <div className="card account-panel">
+        {profile ? <p>Simulation: acting as <strong>{profile.name}</strong> ({profile.email}) — a fictional person, not a Google account.</p> : <p>Simulation mode: there is no Google sign-in. <a href="#/simulation">Choose a fictional teacher or student</a>.</p>}
+      </div>
+    );
   if (!profile)
     return (
       <div className="card account-panel">

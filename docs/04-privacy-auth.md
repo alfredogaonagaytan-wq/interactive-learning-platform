@@ -46,7 +46,9 @@ Client-graded mode: keys are on the device (documented limitation; we prevent ac
 
 ## Phase 5 implementation notes
 - **App OAuth scopes:** `openid`, `userinfo.email`, `drive.file` (non-sensitive). ID and access tokens are kept in memory only, never in IndexedDB or localStorage.
-- **Teacher's Apps Script scopes:** the full `drive` and `spreadsheets` scopes, `script.external_request` (only `oauth2.googleapis.com/tokeninfo` is called) and `userinfo.email`. The script runs in the teacher's own account, so these scopes cover only that teacher's data. It could be narrowed to `drive.file` (it only touches files it creates); this needs live testing before it is changed.
+- **Teacher's Apps Script scopes (0.6.0):** `drive.file` and `script.external_request` only. The script can use only the folder and files it creates (Google-enforced); it no longer has full Drive, full Sheets or email access. Teacher identity is established with a one-time connection code. 0.5.1 used `drive`, `spreadsheets`, `script.external_request` and `userinfo.email`. See doc 15.
+- **Google's sign-in script** is loaded only on devices where someone has signed in with Google before (0.6.0); a device used only offline or in Simulation mode never contacts Google.
+- **Simulation mode** uses fictional people and simulated services in separate local databases; nothing is sent anywhere.
 - **Binding:** a roster row is linked to the Google `sub` the first time a student signs in with the matching email. After that, a different account cannot claim that row.
 - **Reports** hold the student number but no name or email. Names stay in the teacher's private sheet.
 - **Development data:** use fictional names and numbers and test accounts only, until the IT and privacy review (doc 13) is complete.

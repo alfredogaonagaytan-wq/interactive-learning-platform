@@ -1,3 +1,4 @@
+import { isSimulation } from '../sim/mode';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   attemptsRemaining, buildReport, canCheckItem, canRevealAnswers, canShowResults, getItemDefinition, gradeActivity, presentedItems, randomId, reportToCsv,
@@ -244,7 +245,7 @@ export function ActivityPlayer({ version, mode, onExit, assignment }: Props) {
   const audioById = new Map(activity.items.filter((i) => i.type === 'audio').map((i) => [i.id, i]));
 
   const report = () => buildReport(activity, attempt, { revealAnswers: reveal });
-  const base = `${safeFilename(activity.title)}-v${version.version}-attempt${attempt.attemptNumber}`;
+  const base = `${safeFilename(activity.title)}-v${version.version}-attempt${attempt.attemptNumber}${isSimulation() ? '-SIMULATION' : ''}`;
 
   return (
     <article className={`player ${activity.items.some((i) => i.type === 'observation-notes') ? 'wide' : ''}`} aria-labelledby="activity-title">
@@ -284,7 +285,7 @@ export function ActivityPlayer({ version, mode, onExit, assignment }: Props) {
           <div className="actions">
             {showResults && (
               <>
-                <button type="button" className="secondary" onClick={() => downloadText(`${base}-report.json`, JSON.stringify(report(), null, 2))}>Download report (JSON)</button>
+                <button type="button" className="secondary" onClick={() => downloadText(`${base}-report.json`, JSON.stringify(isSimulation() ? { simulation: 'SIMULATED — fictional data, not a real submission', ...report() } : report(), null, 2))}>Download report (JSON)</button>
                 <button type="button" className="secondary" onClick={() => downloadText(`${base}-report.csv`, reportToCsv(report()), 'text/csv')}>Download report (CSV)</button>
                 <button type="button" className="secondary" onClick={() => window.print()}>Print / save as PDF</button>
               </>

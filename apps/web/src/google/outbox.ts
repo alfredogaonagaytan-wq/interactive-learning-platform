@@ -2,6 +2,7 @@ import type { Report, SubmissionPayload } from '@ilp/core';
 import { getOutbox, listOutbox, putOutbox, type OutboxEntry } from '../storage/db';
 import { broker, BrokerError } from './broker';
 import { AuthError, onAuthChange } from './gis';
+import { isSimulation } from '../sim/mode';
 import { DriveError, studentSubmissionsFolder, uploadFile } from './drive';
 import { reportToHtml } from './reportHtml';
 import { safeFilename } from '../app/util';
@@ -100,6 +101,12 @@ async function deliverTeacher(e: OutboxEntry, force: boolean) {
 
 async function deliverDrive(e: OutboxEntry, interactive: boolean, force: boolean) {
   const d = e.drive;
+  if (isSimulation()) {
+    // Simulation: the student's own copy stays on this device; nothing goes to Google Drive.
+    if (d.state !== 'done') Object.assign(d, { state: 'done', error: '', link: '', fileIds: [] });
+    await save(e);
+    return;
+  }
   if (d.state === 'done' || (!force && Date.now() < d.nextAt)) return;
   if (d.state === 'needs-permission' && !interactive) return;
   d.state = 'sending';

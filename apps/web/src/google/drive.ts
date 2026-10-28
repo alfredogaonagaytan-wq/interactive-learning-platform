@@ -70,6 +70,12 @@ export async function uploadFile(opts: { name: string; parentId: string; mime: s
 
 export async function downloadFile(fileId: string): Promise<{ bytes: Uint8Array; mime: string; name: string }> {
   const meta = (await (await driveFetch(`${API}/files/${encodeURIComponent(fileId)}?fields=name,mimeType`)).json()) as { name: string; mimeType: string };
+  // A Google Doc has no file content of its own: export it as .docx (allowed for a file the user picked).
+  if (meta.mimeType === 'application/vnd.google-apps.document') {
+    const docx = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const r = await driveFetch(`${API}/files/${encodeURIComponent(fileId)}/export?mimeType=${encodeURIComponent(docx)}`);
+    return { bytes: new Uint8Array(await r.arrayBuffer()), mime: docx, name: `${meta.name}.docx` };
+  }
   const r = await driveFetch(`${API}/files/${encodeURIComponent(fileId)}?alt=media`);
   return { bytes: new Uint8Array(await r.arrayBuffer()), mime: meta.mimeType, name: meta.name };
 }

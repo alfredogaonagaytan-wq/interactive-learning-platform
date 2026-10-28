@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { openDB } from 'idb';
 import { checkMedia, createActivity, CURRENT_SCHEMA_VERSION, readAnyPackage, type Activity } from '@ilp/core';
-import { closeDb, DB_NAME, getActivity, getAsset, listBank, putActivity, putAsset } from '../src/storage/db';
+import { closeDb, dbName, getActivity, getAsset, listBank, putActivity, putAsset } from '../src/storage/db';
 import { exportPackage, importAsDrafts, importForStudent } from '../src/storage/library';
 import { Editor } from '../src/teacher/Editor';
 import { ConfirmProvider } from '../src/ui/dialog';
@@ -28,7 +28,7 @@ describe('zip export / import with media', () => {
     const zip = await exportPackage([a]);
     const { indexedDB } = globalThis;
     await closeDb();
-    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase(DB_NAME); r.onsuccess = () => res(); });
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase(dbName()); r.onsuccess = () => res(); });
     expect(await getAsset(assetId)).toBeUndefined();
     const [imported] = await importAsDrafts(zip, () => 'act_copy');
     expect(imported?.items[0]?.type).toBe('matching');
@@ -50,10 +50,10 @@ describe('zip export / import with media', () => {
 describe('IndexedDB upgrade from the Phase 1 database', () => {
   it('adds new stores and upgrades stored activities to the current schema', async () => {
     await closeDb();
-    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase(DB_NAME); r.onsuccess = () => res(); });
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase(dbName()); r.onsuccess = () => res(); });
     const v1 = { ...sampleActivity(), schemaVersion: 1 } as Record<string, unknown>;
     delete v1.pools;
-    const old = await openDB(DB_NAME, 1, {
+    const old = await openDB(dbName(), 1, {
       upgrade(d) {
         d.createObjectStore('activities', { keyPath: 'id' });
         d.createObjectStore('versions', { keyPath: ['activityId', 'version'] }).createIndex('byActivity', 'activityId');

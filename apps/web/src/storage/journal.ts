@@ -1,3 +1,4 @@
+import { isSimulation } from '../sim/mode';
 import { AttemptSchema, type Attempt } from '@ilp/core';
 
 /**
@@ -10,7 +11,7 @@ import { AttemptSchema, type Attempt } from '@ilp/core';
  * Storage can be unavailable (private mode, blocked site data): every access
  * is guarded and the app keeps working without the journal.
  */
-const PREFIX = 'ilp.journal.';
+const PREFIX = isSimulation() ? 'ilp.sim.journal.' : 'ilp.journal.';
 const key = (a: Pick<Attempt, 'activityId' | 'version' | 'mode'>) => `${PREFIX}${a.activityId}.${a.version}.${a.mode}`;
 
 export function journalWrite(a: Attempt): void {

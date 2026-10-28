@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getOutbox, type OutboxEntry } from '../storage/db';
 import { onOutboxChange, processOutbox } from '../google/outbox';
+import { isSimulation } from '../sim/mode';
 
 const LABEL: Record<OutboxEntry['teacher']['state'], string> = {
   pending: 'Waiting to send', sending: 'Sending…', done: 'Done', failed: 'Not accepted', 'needs-sign-in': 'Sign in again to send', 'needs-permission': 'Needs your permission',
@@ -17,6 +18,21 @@ export function SubmissionStatus({ attemptId }: { attemptId: string }) {
   if (!e) return null;
   const t = e.teacher;
   const d = e.drive;
+  if (isSimulation())
+    return (
+      <div className="delivery card sim-delivery" role="status" aria-live="polite">
+        <h3>Delivery (SIMULATED)</h3>
+        <ul>
+          <li className={`dl-${t.state}`}>
+            <strong>Simulated teacher service:</strong> {LABEL[t.state]}
+            {t.receipt && <> — SIMULATED receipt <code>{t.receipt.receiptId}</code>{t.receipt.score !== null ? `, simulated score ${t.receipt.score} / ${t.receipt.maxScore}` : ''}. Not a real submission.</>}
+            {t.state !== 'done' && t.error && <span className="meta"> {t.error}</span>}
+          </li>
+          <li><strong>Google Drive:</strong> not used in Simulation mode. Your copy stays on this device.</li>
+        </ul>
+        {t.state !== 'done' && <button type="button" className="secondary" onClick={() => void processOutbox({ force: true })}>Retry now</button>}
+      </div>
+    );
   return (
     <div className="delivery card" role="status" aria-live="polite">
       <h3>Delivery</h3>

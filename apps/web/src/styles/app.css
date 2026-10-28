@@ -608,3 +608,14 @@ button.link.small-link { font-size: 0.85rem; margin-bottom: 4px; }
 .assignment-meta { max-width: 820px; margin: 0 auto 6px; }
 
 .service-signin { margin: 0 auto 1rem; max-width: 60rem; }
+
+/* Simulation mode */
+.sim-banner { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .5rem 1rem; background: #5b2a86; color: #fff; font-size: .95rem; }
+.sim-banner a { color: #fff; text-decoration: underline; }
+.sim-banner select { margin-left: .25rem; max-width: 16rem; }
+.sim-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+.sim-people { list-style: none; padding: 0; margin: 0 0 .75rem; }
+.sim-people li { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .35rem 0; border-bottom: 1px solid var(--line, #ddd); flex-wrap: wrap; }
+.sim-delivery h3::after { content: ''; }
+.storage-kinds { margin: .25rem 0 .75rem; }
+.permissions ul { margin: .25rem 0; }

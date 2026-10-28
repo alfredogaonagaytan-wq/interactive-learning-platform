@@ -1,3 +1,4 @@
+import { isSimulation } from '../sim/mode';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { assignmentLink, parseRosterCsv, type RosterRow } from '@ilp/core';
 import { broker, type AssignmentInfo, type ClassInfo, type SubmissionRow } from '../google/broker';
@@ -186,6 +187,7 @@ function Assignments({ brokerId, classId, onMessage }: { brokerId: string; class
               <div className="row wrap">
                 <input type="text" readOnly aria-label={`Link for ${a.title}`} value={link} onFocus={(e) => e.currentTarget.select()} />
                 <button type="button" className="secondary" onClick={async () => { try { await navigator.clipboard.writeText(link); onMessage({ kind: 'ok', text: 'Link copied. Share it with students (e.g. in Google Classroom).' }); } catch { onMessage({ kind: 'error', text: 'Select the link and copy it.' }); } }}>Copy link</button>
+                {isSimulation() && <a className="button ghost" href={`#/a/${encodeURIComponent(a.assignmentId)}?b=${encodeURIComponent(brokerId)}`}>Open link (switch to a fictional student first)</a>}
                 <button type="button" className="ghost" onClick={async () => setSubs({ ...subs, [a.assignmentId]: await broker.listSubmissions(brokerId, a.assignmentId) })}>Submissions</button>
                 <button type="button" className="ghost" onClick={async () => { await broker.updateAssignment(brokerId, a.assignmentId, { closed: !a.closed }); await load(); }}>{a.closed ? 'Reopen' : 'Close'}</button>
               </div>

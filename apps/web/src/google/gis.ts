@@ -1,5 +1,6 @@
 import { brokerIdFromNonce, brokerNonce } from '@ilp/core';
 import { DRIVE_SCOPE, GOOGLE_CLIENT_ID } from '../config';
+import { isSimulatedBroker, isSimulation } from '../sim/mode';
 
 /**
  * Google Identity Services (sign-in + Drive access tokens).
@@ -36,6 +37,8 @@ export interface Profile {
   email: string;
   name: string;
   hd: string;
+  /** A fictional person in Simulation mode — never a Google account. */
+  simulated?: boolean;
 }
 
 export interface AuthState {
@@ -52,6 +55,8 @@ const serviceTokens = new Map<string, { token: string; exp: number }>();
 const waiters = new Map<string, Array<() => void>>();
 let defaultService: string | null = null;
 let initializedFor: string | null | undefined;
+/** Simulation mode: the fictional person being acted as, and how to mint their simulated sign-ins. */
+let simulated: { profile: Profile; mint: (brokerId: string) => Promise<string> } | null = null;
 let access: { token: string; exp: number } | null = null;
 const listeners = new Set<(s: AuthState) => void>();
 let scriptPromise: Promise<void> | null = null;
@@ -65,6 +70,7 @@ export const authState = () => state;
 const emit = () => listeners.forEach((l) => l(state));
 
 export function loadGis(): Promise<void> {
+  if (isSimulation()) return Promise.reject(new Error('Google sign-in is not used in Simulation mode.'));
   if (window.google?.accounts) return Promise.resolve();
   scriptPromise ??= new Promise((resolve, reject) => {
     const s = document.createElement('script');
@@ -101,6 +107,11 @@ export function acceptCredential(credential: string): void {
     access = null; // different account: drop Drive access and every service sign-in
     serviceTokens.clear();
   }
+  try {
+    localStorage.setItem(USED, '1');
+  } catch {
+    /* only affects silent sign-in after a reload */
+  }
   const service = brokerIdFromNonce(p.nonce);
   if (service) serviceTokens.set(service, { token: credential, exp: p.exp * 1000 });
   // Same account: keep the same profile object, so pages that depend on it do not restart work.
@@ -133,8 +144,19 @@ export async function renderSignInButton(el: HTMLElement, brokerId: string | nul
   window.google!.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill' });
 }
 
-/** Silent re-sign-in after a reload (One Tap / FedCM, if the user signed in before). */
+/** Remembered (no personal data) so a device that never used Google sign-in never loads Google's script. */
+const USED = 'ilp.google.signedInBefore';
+const usedGoogleBefore = () => {
+  try {
+    return localStorage.getItem(USED) === '1';
+  } catch {
+    return false;
+  }
+};
+
+/** Silent re-sign-in after a reload (One Tap / FedCM), only on devices where someone signed in before. */
 export async function trySilentSignIn(brokerId: string | null = defaultService): Promise<void> {
+  if (!usedGoogleBefore()) return;
   try {
     await initSignIn(brokerId);
     window.google!.accounts.id.prompt();
@@ -149,6 +171,11 @@ export function signOut(): void {
   access = null;
   serviceTokens.clear();
   state = empty();
+  try {
+    localStorage.removeItem(USED);
+  } catch {
+    /* ignore */
+  }
   emit();
 }
 
@@ -167,6 +194,13 @@ export function currentIdToken(brokerId: string): string {
  */
 let silentWaitMs = 8000;
 export async function idTokenFor(brokerId: string, waitMs = silentWaitMs): Promise<string> {
+  // Simulated and real sign-ins never cross: each only goes to its own kind of service.
+  if (isSimulation()) {
+    if (!simulated) throw new AuthError('Choose a fictional person on the Simulation page first.');
+    if (!isSimulatedBroker(brokerId)) throw new AuthError('Simulation mode never signs in to real submission services.');
+    return simulated.mint(brokerId);
+  }
+  if (isSimulatedBroker(brokerId)) throw new AuthError('This link belongs to Simulation mode.');
   try {
     return currentIdToken(brokerId);
   } catch (e) {
@@ -187,8 +221,18 @@ export async function idTokenFor(brokerId: string, waitMs = silentWaitMs): Promi
 
 export class AuthError extends Error {}
 
+/** Simulation mode: act as a fictional person (null: nobody). Clears every real sign-in. */
+export function setSimulatedIdentity(s: { profile: Profile; simulated: true; mint: (brokerId: string) => Promise<string> } | null): void {
+  simulated = s ? { profile: s.profile, mint: s.mint } : null;
+  serviceTokens.clear();
+  access = null;
+  state = s ? { profile: { ...s.profile, simulated: true }, services: [], needsSignInFor: null } : empty();
+  emit();
+}
+
 /** Short-lived Drive access token for drive.file. Prompts for consent the first time. */
 export async function driveAccessToken(interactive = true): Promise<string> {
+  if (isSimulation()) throw new AuthError('Google Drive is not used in Simulation mode.');
   if (access && Date.now() < access.exp - 60_000) return access.token;
   await loadGis();
   const hint = state.profile?.email;
@@ -222,6 +266,7 @@ export function __resetAuthForTests(): void {
   waiters.clear();
   defaultService = null;
   initializedFor = undefined;
+  simulated = null;
   scriptPromise = null;
   emit();
 }

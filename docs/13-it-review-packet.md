@@ -18,7 +18,7 @@ flowchart LR
 | `openid`, `userinfo.email` | non-sensitive | Identify the user to the teacher's service |
 | `drive.file` | non-sensitive | Save the user's own reports; open files the user explicitly picks. **No access to any other Drive files.** |
 
-The teacher's Apps Script (installed by each teacher in their own account) uses Drive, Sheets and one external request (`oauth2.googleapis.com/tokeninfo`) to store submissions in that teacher's Drive.
+The teacher's Apps Script (installed by each teacher in their own account, version 0.6.0) requests only `drive.file` and `script.external_request`: it can use **only the folder and files it creates** in that teacher's Drive (Google-enforced), through the Drive and Sheets APIs, and calls only Google's token check and those APIs. It never shares files. See doc 15.
 
 ## Personal information
 | Data | Where | Visible to |

@@ -1,3 +1,4 @@
+import { DriveImportButton } from '../google/DriveImportButton';
 import { useRef, useState, type ClipboardEvent } from 'react';
 import { checkMedia, DOCUMENT_TYPES, IMAGE_TYPES, isApproved, randomId, readingHash, runsText, sniffAnyType, type Block, type ReadingDoc } from '@ilp/core';
 import { getAsset, putAsset } from '../storage/db';
@@ -122,6 +123,7 @@ export function ReadingEditor({ doc, onChange }: { doc: ReadingDoc; onChange: (d
         </div>
         <div className="import-actions">
           <button type="button" className="secondary" onClick={() => fileRef.current?.click()} disabled={!!busy}>Upload a file…</button>
+          <DriveImportButton mimeTypes="application/vnd.google-apps.document,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,text/plain,image/png,image/jpeg,image/webp" title="Choose a reading" disabled={!!busy} onError={(m) => setNotes([m])} onFile={(d) => onFile(new File([d.bytes as Uint8Array<ArrayBuffer>], d.name, { type: d.mime }))} />
           <span className="field-hint">.docx, .pdf, .txt, .html or a scanned page image</span>
           <input ref={fileRef} type="file" hidden aria-label="Upload reading file" accept=".docx,.pdf,.txt,.html,.htm,image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void onFile(f); }} />
         </div>

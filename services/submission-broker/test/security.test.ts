@@ -10,7 +10,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { createActivity, ReceiptFields, type Activity, type Item } from '@ilp/core';
-import { brokerBuildScript, createBroker, fakeJwt, FakeBlob } from './fakeAppsScript';
+import { brokerBuildScript, createBroker, fakeJwt } from './fakeAppsScript';
 
 const CLIENT = 'test-client.apps.googleusercontent.com';
 const TEACHER = 'teacher@example.com';
@@ -41,7 +41,7 @@ let asgId: string;
 function setup() {
   b = createBroker({ teacher: TEACHER, clientId: CLIENT, brokerId: BROKER });
   teacher = b.signIn(TEACHER, 'sub-teacher');
-  expect(b.call('whoami', teacher).result.role).toBe('teacher'); // "Connect" in the app
+  expect(b.connect(teacher).result.role).toBe('teacher'); // "Connect" in the app, with the code from setup()
   classId = b.call('classes.create', teacher, { name: 'Test 7A' }).result.classId;
   expect(b.call('roster.put', teacher, { classId, rows: [
     { studentNumber: 'S01', name: 'Fictional Ada', email: 'student1@example.com' },
@@ -91,8 +91,10 @@ describe('authentication: forged, foreign and replayed tokens', () => {
   it('before the teacher connects, nobody can use the service; a non-teacher cannot connect it', () => {
     const fresh = createBroker({ teacher: TEACHER, clientId: CLIENT, brokerId: BROKER });
     expect(fresh.call('whoami', fresh.signIn('student1@example.com', 'sub-1')).error).toBe('not-connected');
+    expect(fresh.call('whoami', fresh.signIn(TEACHER, 'sub-teacher')).error).toBe('not-connected'); // no code, no connection
+    expect(fresh.connect(fresh.signIn('student1@example.com', 'sub-1'), 'AAAA-BBBB-CCCC-DDDD').error).toBe('forbidden');
     expect(fresh.props.get('BROKER_ID')).toBeUndefined();
-    expect(fresh.call('whoami', fresh.signIn(TEACHER, 'sub-teacher')).result.role).toBe('teacher');
+    expect(fresh.connect(fresh.signIn(TEACHER, 'sub-teacher')).result.role).toBe('teacher');
     expect(fresh.props.get('BROKER_ID')).toBe(BROKER);
   });
 
@@ -115,7 +117,8 @@ describe('authentication: forged, foreign and replayed tokens', () => {
     expect(b.call('whoami', fakeJwt({ aud: 'someone-else', exp: Date.now() / 1000 + 100 })).error).toBe('unauthenticated');
     expect(b.call('whoami', fakeJwt({ aud: CLIENT, exp: 1 })).error).toBe('unauthenticated');
     expect(b.tokenFetches()).toBe(before);
-    expect(b.fetchedUrls.every((u) => u.startsWith('https://oauth2.googleapis.com/tokeninfo?id_token='))).toBe(true);
+    // Only Google's token check and the Drive/Sheets APIs are ever called.
+    expect(b.fetchedUrls.every((u) => /^https:\/\/(oauth2\.googleapis\.com\/tokeninfo\?id_token=|www\.googleapis\.com\/(upload\/)?drive\/v3\/|sheets\.googleapis\.com\/v4\/spreadsheets\/)/.test(u))).toBe(true);
   });
 
   it('an unauthenticated GET reveals only the service name and version', () => {
@@ -167,8 +170,8 @@ describe('Drive isolation', () => {
   beforeEach(setup);
 
   it('no request field can make the service read, change or delete an unrelated Drive file', () => {
-    const secret = b.drive.createFolder('Teacher private').createFile(new FakeBlob(Buffer.from('TOP-SECRET'), 'text/plain', 'tax.txt'));
-    const id = secret.getId();
+    const privateFolder = b.emu.userCreate('Teacher private', { mimeType: 'application/vnd.google-apps.folder' });
+    const id = b.emu.userCreate('tax.txt', { parents: [privateFolder], content: 'TOP-SECRET' });
     const s1 = b.signIn('student1@example.com', 'sub-1');
     const evil = { fileId: id, folderId: id, reportFileId: id, assetId: id, classId: id, assignmentId: id, attemptId: id };
     const outputs = [
@@ -177,8 +180,9 @@ describe('Drive isolation', () => {
       b.call('student.asset', s1, { assignmentId: asgId, assetId: id }),
     ];
     expect(JSON.stringify(outputs)).not.toContain('TOP-SECRET');
-    expect(b.drive.getFileById(id).getBlob().getDataAsString()).toBe('TOP-SECRET');
-    expect(secret.parent!.name).toBe('Teacher private');
+    expect(b.emu.text(id)).toBe('TOP-SECRET');
+    expect(b.emu.file(id)!.parents).toEqual([privateFolder]);
+    expect(b.emu.file(id)!.trashed).toBe(false);
   });
 });
 
@@ -236,7 +240,7 @@ describe('submissions: fabrication, replay, limits and receipts', () => {
     const s1 = b.signIn('student1@example.com', 'sub-1');
     b.call('student.submit', s1, payload('att_e'));
     const row = b.call('submissions.list', teacher, { assignmentId: asgId }).result[0];
-    b.drive.files.delete(row.reportFileId);
+    delete b.emu.state.files[row.reportFileId]; // the teacher deleted it in Drive
     const r = b.call('submissions.report', teacher, { assignmentId: asgId, attemptId: 'att_e' });
     expect(r.ok).toBe(false);
     expect(r.message).not.toMatch(/file_|No file|Error|at /);
@@ -251,12 +255,12 @@ describe('submissions: fabrication, replay, limits and receipts', () => {
 describe('recordings', () => {
   beforeEach(setup);
   const rec = (extra: Record<string, unknown>) => ({ id: 'rec_1', itemId: 'itm_sp', targetId: 't1', mime: 'audio/webm', base64: webm(), ...extra });
-  const recordingsIn = () => b.drive.allFiles().filter((f) => f.parent?.path().includes('/Recordings/'));
+  const recordingsIn = () => b.files().filter((f) => f.path.includes('/Recordings/') && f.mimeType !== 'application/vnd.google-apps.folder');
 
   it('accepts a real audio recording for a speaking item that allows submission', () => {
     expect(b.call('student.submit', b.signIn('student1@example.com', 'sub-1'), payload('att_r', { recordings: [rec({})] })).ok).toBe(true);
     expect(recordingsIn()).toHaveLength(1);
-    expect(recordingsIn()[0]!.getBlob().getContentType()).toBe('audio/webm');
+    expect(recordingsIn()[0]!.mimeType).toBe('audio/webm');
   });
 
   it('refuses uploads that are not audio, are for the wrong item or target, or are duplicates', () => {
@@ -283,8 +287,7 @@ describe('spreadsheet formula injection', () => {
     b.call('classes.create', teacher, { name: payloadF, section: '+HYPERLINK("https://evil.example")' });
     b.call('assignments.create', teacher, { classId, activity: activity(payloadF), version: 1, contentHash: 'x', title: '@SUM(1)' });
     b.call('roster.put', teacher, { classId, rows: [{ studentNumber: 'S09', name: '=IMAGE("https://evil.example/x.png")', email: 'student9@example.com' }] });
-    const sheet = [...b.sheets.values()][0]!;
-    expect(sheet.formulas).toEqual([]);
+    expect(b.emu.formulas).toEqual([]);
     expect(b.call('classes.list', teacher).result.map((c: { name: string }) => c.name)).toContain(payloadF);
     expect(b.call('roster.get', teacher, { classId }).result[0].name).toBe('=IMAGE("https://evil.example/x.png")');
   });
@@ -323,7 +326,8 @@ describe('code integrity', () => {
     expect(code).not.toMatch(/__CLIENT_ID__|__CORE_BUILD__|AIza[0-9A-Za-z_-]{20,}|client_secret|GOCSPX/);
     const manifest = JSON.parse(readFileSync(resolve(brokerDist(), 'appsscript.json'), 'utf8'));
     expect(manifest.webapp).toEqual({ executeAs: 'USER_DEPLOYING', access: 'ANYONE_ANONYMOUS' });
-    expect(manifest.oauthScopes.sort()).toEqual(['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/script.external_request', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/userinfo.email']);
+    // 0.6.0: per-file Drive access only (was: drive, spreadsheets, script.external_request, userinfo.email).
+    expect(manifest.oauthScopes.sort()).toEqual(['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/script.external_request']);
     execFileSync(process.execPath, [brokerBuildScript()], { stdio: 'ignore' });
   });
 });

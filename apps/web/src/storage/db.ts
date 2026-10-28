@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { CURRENT_SCHEMA_VERSION, parseActivity, upgradePublishedVersion, type Activity, type Attempt, type Item, type MediaType, type PublishedVersion } from '@ilp/core';
 import { journalClearAll, journalClearFor } from './journal';
+import { isSimulation, SIM_DB_SUFFIX } from '../sim/mode';
 
 /**
  * Local-first storage (IndexedDB). Everything a teacher or student creates is
@@ -75,12 +76,13 @@ export interface BankEntry {
   savedAt: string;
 }
 
-export const DB_NAME = 'ilp';
+/** Simulation mode uses its own database, so fictional work never mixes with real work. Resolved when the database is opened. */
+export const dbName = () => (isSimulation() ? `ilp${SIM_DB_SUFFIX}` : 'ilp');
 const DB_VERSION = 4;
 let dbPromise: Promise<IDBPDatabase<IlpDB>> | null = null;
 
 export function db(): Promise<IDBPDatabase<IlpDB>> {
-  dbPromise ??= openDB<IlpDB>(DB_NAME, DB_VERSION, {
+  dbPromise ??= openDB<IlpDB>(dbName(), DB_VERSION, {
     upgrade(database, oldVersion) {
       if (oldVersion < 1) {
         database.createObjectStore('activities', { keyPath: 'id' });

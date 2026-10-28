@@ -64,3 +64,16 @@ export async function pickDriveFile(mimeTypes: string, title: string): Promise<{
     (b.build!() as { setVisible(v: boolean): void }).setVisible(true);
   });
 }
+
+/**
+ * "From Google Drive…": the teacher picks one file; the app copies its bytes
+ * into the activity (on this device). When the activity is assigned, that copy
+ * goes to the teacher's own storage folder. The original stays private and
+ * unchanged, and picking it gives this app access to that file only.
+ */
+export async function importFromDrive(mimeTypes: string, title: string): Promise<{ bytes: Uint8Array; mime: string; name: string } | null> {
+  const f = await pickDriveFile(mimeTypes, title);
+  if (!f) return null;
+  const { downloadFile } = await import('./drive');
+  return downloadFile(f.id);
+}

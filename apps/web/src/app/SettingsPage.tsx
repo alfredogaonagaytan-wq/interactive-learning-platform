@@ -1,3 +1,4 @@
+import { isSimulation, setSimulation } from '../sim/mode';
 import { useEffect, useState } from 'react';
 import { clearAllData, deleteAllRecordings, listRecordings } from '../storage/db';
 import { DEFAULT_RETENTION, getRetention, setRetention, type RetentionPrefs } from '../storage/retention';
@@ -90,8 +91,22 @@ export function SettingsPage() {
         {done && <p className="notice ok" role="status">{done}</p>}
       </div>
       <div className="card">
+        <h2>Simulation mode</h2>
+        {isSimulation() ? (
+          <>
+            <p>Simulation mode is <strong>on</strong>: fictional people, simulated Google services, separate data.</p>
+            <div className="row wrap"><a className="button secondary" href="#/simulation">Open the Simulation page</a><button type="button" className="secondary" onClick={() => setSimulation(false)}>Leave Simulation mode</button></div>
+          </>
+        ) : (
+          <>
+            <p>Test the whole platform with fictional teachers and students, without signing in to Google. Its data is kept apart from your real work.</p>
+            <a className="button secondary" href="#/simulation">About Simulation mode</a>
+          </>
+        )}
+      </div>
+      <div className="card">
         <h2>About</h2>
-        <p>Interactive Learning Platform · version 0.5.0 (Phase 5). Open source under the MIT licence.</p>
+        <p>Interactive Learning Platform · version 0.6.0 (Phase 5, per-file Drive access){isSimulation() ? ' · SIMULATION' : ''}. Open source under the MIT licence.</p>
       </div>
     </section>
   );
