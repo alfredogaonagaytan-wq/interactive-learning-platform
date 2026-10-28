@@ -1,5 +1,6 @@
 // Builds the Apps Script files: GradingCore.gs (shared engine bundle) and Code.gs.
 import { build } from 'esbuild';
+import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +30,9 @@ const r = await build({
   }],
 });
 const core = readFileSync(join(here, 'src/polyfills.js'), 'utf8') + '\n' + r.outputFiles[0].text;
-writeFileSync(join(out, 'GradingCore.gs'), `/* Interactive Learning Platform grading engine (MIT). Generated — do not edit. */\n${core}`);
-writeFileSync(join(out, 'Code.gs'), readFileSync(join(here, 'src/Code.js'), 'utf8').replace("'__CLIENT_ID__'", JSON.stringify(clientId)));
+// Code.gs names the exact GradingCore build it was generated with, so a mismatched paste is detected on Connect.
+const coreBuild = createHash('sha256').update(core).digest('hex').slice(0, 16);
+writeFileSync(join(out, 'GradingCore.gs'), `/* Interactive Learning Platform grading engine (MIT). Generated — do not edit. */\nvar ILP_CORE_BUILD = '${coreBuild}';\n${core}`);
+writeFileSync(join(out, 'Code.gs'), readFileSync(join(here, 'src/Code.js'), 'utf8').replace("'__CLIENT_ID__'", JSON.stringify(clientId)).replace("'__CORE_BUILD__'", JSON.stringify(coreBuild)));
 copyFileSync(join(here, 'src/appsscript.json'), join(out, 'appsscript.json'));
 console.log(`broker built: GradingCore.gs ${(core.length / 1024).toFixed(0)} KB, Code.gs`);

@@ -23,3 +23,18 @@ Accounts: **T** = your teacher account; **S1**, **S2** = test student accounts (
 | 15 | T | Editor → Audio clip → **From Google Drive…** → pick an audio file | Audio is copied into the activity; the Drive file stays private |
 
 Please note: device, browser, step number, and any message shown. Screenshots help.
+
+## Security checks (from the audit, doc 14)
+Use the same synthetic accounts. **X2** = a second test account that deploys its *own* copy of the service (the "attacker").
+
+| # | Who | Steps | Expected |
+|---|---|---|---|
+| S1 | T | Before pressing Connect, open the service URL in a browser | Only `{"ok":true,"service":"ilp-submission-broker","version":"0.5.1"}` |
+| S2 | S1 | Before T has pressed Connect, open an assignment link for it (if you have one from an earlier setup) | "Your teacher has not finished connecting this submission service yet." |
+| S3 | T | Connect | "Connected…" with no version warning |
+| S4 | X2 | Deploy the service in X2's account and press Connect as X2. Make a link `<app>/#/a/asg_x?b=<X2's deployment id>`; T opens it while signed in | T sees an error from X2's service; T's own Classes page keeps working. (Whether a token X2 receives is refused by T's service is covered by the automated tests.) |
+| S5 | T | Open the private sheet | Student numbers such as `007` are shown exactly; dates are text like `2026-11-02T09:00:00.000Z`; no cell is a formula |
+| S6 | T | Create an assignment with a due date 2 minutes ahead and late work **off**; S1 submits after it | Refused: "The due date has passed…" |
+| S7 | T | Drive → right-click the Interactive Learning Platform folder → Share | "Only you" has access (and nothing inside is shared) |
+| S8 | S1 | Open two different teachers' assignment links (T's and X2's) one after the other | Both load; if one shows "Confirm your Google sign-in…", press the button and it continues |
+| S9 | T | First run of `setup` | The consent screen lists: see/edit/create/delete all Drive files, Sheets, connect to an external service, see your email address — nothing else |

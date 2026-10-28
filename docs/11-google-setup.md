@@ -30,3 +30,16 @@ In the app: **Classes → Set up the submission service** (or `#/setup-service`)
 What the script can access: it runs as the teacher and its manifest requests Drive, Sheets, external requests (only `oauth2.googleapis.com/tokeninfo` is called) and the teacher's email. It creates and uses only the folder "Interactive Learning Platform" and one private sheet. A school administrator may restrict Apps Script; in that case, ask IT (see doc 13).
 
 Updating the script later: Deploy → Manage deployments → Edit → **New version** (keeps the same URL, so existing assignment links keep working).
+
+**Connect binds the service to its URL (since 0.5.1).** The first time the script's owner presses **Connect**, the
+service records its own web-app id and from then on accepts only sign-ins made for that id; before that it accepts
+nobody. If you ever create a **new deployment** (a new URL) instead of a new version, run `resetConnection` once in
+the editor and press Connect again.
+
+**Integrity check.** On Connect the app checks that the service is version **0.5.1** and that `Code.gs` and
+`GradingCore` come from the same build. If it warns, copy all three files again. The first lines of the files show the
+build: `Code.gs` contains `var VERSION = '0.5.1'` and `var CORE_BUILD = "…"`; `GradingCore` starts with
+`var ILP_CORE_BUILD = '…'` — the two values must be identical.
+
+**Use an account whose Drive holds nothing else.** The script has full Drive access in the account it runs in
+(see doc 14, M-5). Never share the script project or the sheet.

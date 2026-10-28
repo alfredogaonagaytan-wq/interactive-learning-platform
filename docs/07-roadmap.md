@@ -81,12 +81,14 @@ Phases set the order of work; they do not reduce the final scope. "Done" means i
 | Drive Picker for teacher audio (copied into the activity, Drive file stays private) | manual (doc 12, step 15) |
 | GitHub Pages deployment workflow | `.github/workflows/deploy.yml` |
 
+**Security audit (doc 14):** 1 critical, 3 high, 4 medium and 7 low findings fixed in service 0.5.1, with 31 attack tests; open items M-5 (Drive scope), M-6 (deletion tool) and L-7 are scheduled for Phase 6.
 **Must still be verified live** (doc 12): real Google sign-in on iOS/Android/Chromebook, Apps Script deployment and quotas, Drive uploads, school admin policies.
 **Bug fixed during Phase 5:** Chrome's on-device speech check (`SpeechRecognition.available`) crashed the browser tab in testing; the app no longer calls it.
 
 ## Phase 6 — Reporting & analytics
 Teacher dashboard (submission status, item analysis, skill heatmap, students needing support), score overrides with audit trail, feedback, release of results, CSV/PDF export (individual + class).
 **Accept when:** class exports match per-student reports; overrides never alter original data; dashboards show student numbers by default.
+Security carry-overs from doc 14: student-data deletion tool (M-6), service-issued attempt seeds (L-7), evaluate `drive.file` storage via the Advanced Drive service (M-5).
 
 ## Phase 7 — Extended H5P coverage
 Interactive video/audio, presentation, book, branching, dialog cards, flashcards, memory, word search, crossword, timeline, image types; `.h5p` importer with per-item conversion report; sandboxed fallback player.

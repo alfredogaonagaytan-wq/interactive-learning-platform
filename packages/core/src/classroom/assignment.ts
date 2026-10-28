@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IdSchema, ShortTextSchema } from '../schema/common';
 import type { Activity, Item } from '../schema/activity';
+import { AUDIO_TYPES, MAX_AUDIO_BYTES, sniffMediaType } from '../package/media';
 
 /**
  * Classroom documents exchanged between the app and the teacher's submission
@@ -104,7 +105,8 @@ export function redactAnswerKeys(activity: Activity): Activity {
       case 'dictation':
         return { ...it, text: '', alternatives: [], feedback: {} };
       default:
-        return it;
+        // Any other feedback can still give the answer away ("Right: it was A"): keep only the hint.
+        return 'feedback' in it && it.feedback ? ({ ...it, feedback: { ...((it.feedback as { hint?: string }).hint ? { hint: (it.feedback as { hint?: string }).hint } : {}) } } as Item) : it;
     }
   });
   return { ...activity, items, settings: { ...activity.settings, feedbackTiming: 'after-release', answerReveal: 'after-release', checksPerItem: null } };
@@ -124,4 +126,59 @@ export function parseBrokerId(input: string): string | null {
   const m = /script\.google\.com\/macros\/s\/([A-Za-z0-9_-]+)\/exec/.exec(input.trim());
   const id = m ? m[1]! : input.trim();
   return BROKER_ID_PATTERN.test(id) ? id : null;
+}
+
+/**
+ * Every ID token the app sends to a teacher's service carries this nonce, so a
+ * token captured by one service (for example a malicious one named in a link)
+ * is refused by every other service. The service records its own id when the
+ * teacher connects it.
+ */
+export const BROKER_NONCE_PREFIX = 'ilp-b.';
+export function brokerNonce(brokerId: string): string {
+  if (!BROKER_ID_PATTERN.test(brokerId)) throw new Error('Invalid submission service id');
+  return BROKER_NONCE_PREFIX + brokerId;
+}
+export function brokerIdFromNonce(nonce: unknown): string | null {
+  if (typeof nonce !== 'string' || !nonce.startsWith(BROKER_NONCE_PREFIX)) return null;
+  const id = nonce.slice(BROKER_NONCE_PREFIX.length);
+  return BROKER_ID_PATTERN.test(id) ? id : null;
+}
+
+/** Largest submission request a service accepts (Apps Script's own limit is about 50 MB). */
+export const MAX_SUBMISSION_CHARS = 45_000_000;
+/** Largest JSON of the responses alone (answers are text; recordings travel separately). */
+export const MAX_RESPONSES_CHARS = 2_000_000;
+
+export interface RecordingCheck {
+  itemId: string;
+  targetId: string;
+  /** First bytes of the decoded file (16 are enough). */
+  head: Uint8Array;
+  size: number;
+}
+
+/**
+ * Server-side check of submitted recordings: each must be real audio (by its
+ * bytes, not the declared type), within the size limit, for a target of a
+ * speaking item that was presented and allows submission, at most one per
+ * target. Returns the stored media type per recording, or a problem.
+ */
+export function checkRecordings(activity: Activity, presentedItemIds: string[], recs: RecordingCheck[]): { ok: true; mimes: string[] } | { ok: false; problem: string } {
+  const seen = new Set<string>();
+  const mimes: string[] = [];
+  for (const r of recs) {
+    const item = activity.items.find((i) => i.id === r.itemId);
+    if (!item || item.type !== 'speaking' || !presentedItemIds.includes(item.id)) return { ok: false, problem: 'A recording is not for a speaking question in this assignment.' };
+    if (item.submission === 'none') return { ok: false, problem: 'This speaking question does not accept recordings.' };
+    if (!item.targets.some((t) => t.id === r.targetId)) return { ok: false, problem: 'A recording is not for a phrase in this question.' };
+    const key = `${r.itemId}|${r.targetId}`;
+    if (seen.has(key)) return { ok: false, problem: 'Only one recording per phrase can be submitted.' };
+    seen.add(key);
+    if (r.size > MAX_AUDIO_BYTES) return { ok: false, problem: 'A recording is too large.' };
+    const mime = sniffMediaType(r.head);
+    if (!mime || !(AUDIO_TYPES as readonly string[]).includes(mime)) return { ok: false, problem: 'A recording is not an audio file.' };
+    mimes.push(mime);
+  }
+  return { ok: true, mimes };
 }

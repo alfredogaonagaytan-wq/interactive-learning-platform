@@ -9,8 +9,18 @@
  *  - re-grades submissions with the same engine the app uses, writes a
  *    teacher-owned report, and returns an HMAC-signed receipt
  * Nothing is sent anywhere except Google's token-verification endpoint.
+ *
+ * Security model (see docs/14-security-audit.md):
+ *  - every request needs a Google ID token for the app's OAuth client whose
+ *    nonce names THIS service; the service records its own id when the teacher
+ *    first connects, so tokens captured by any other service are useless here
+ *  - the teacher is the script owner, pinned to their Google account id
+ *  - students are identified only through the private roster, never by
+ *    anything they send; Drive file ids never come from requests
+ *  - all text written to the sheet is stored as plain text (no formulas)
  */
-var VERSION = '0.5.0';
+var VERSION = '0.5.1';
+var CORE_BUILD = '__CORE_BUILD__'; // filled in by build.mjs
 var ROOT_NAME = 'Interactive Learning Platform';
 var SHEETS = {
   Classes: ['classId', 'name', 'section', 'folderId', 'createdAt'],
@@ -26,8 +36,10 @@ function doGet() {
 
 function doPost(e) {
   var req;
+  var body = (e && e.postData && e.postData.contents) || '{}';
+  if (body.length > ILP.MAX_SUBMISSION_CHARS) return json_({ ok: false, error: 'bad-request', message: 'The request is too large.' });
   try {
-    req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    req = JSON.parse(body);
   } catch (err) {
     return json_({ ok: false, error: 'bad-request', message: 'Request is not valid JSON.' });
   }
@@ -36,8 +48,11 @@ function doPost(e) {
     var result = route_(req.action, who, req);
     return json_({ ok: true, result: result });
   } catch (err) {
-    var code = err && err.code ? err.code : 'server-error';
-    return json_({ ok: false, error: code, message: err && err.code ? err.message : 'Unexpected error: ' + err });
+    if (err && err.code) return json_({ ok: false, error: err.code, message: err.message });
+    // Internal details stay in the teacher's own execution log (Apps Script → Executions); the caller gets a reference only.
+    var ref = Utilities.getUuid().slice(0, 8);
+    console.error('ILP error ' + ref + ': ' + String((err && err.stack) || err).slice(0, 1000));
+    return json_({ ok: false, error: 'server-error', message: 'Something went wrong in the submission service. Try again later (reference ' + ref + ').' });
   }
 }
 
@@ -56,10 +71,24 @@ function props_() {
   return PropertiesService.getScriptProperties();
 }
 
+/** Reads the token's claims WITHOUT verifying them: only used to discard junk before asking Google. */
+function unverifiedClaims_(idToken) {
+  var parts = idToken.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    var b64 = parts[1] + '==='.slice((parts[1].length + 3) % 4);
+    return JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(b64)).getDataAsString());
+  } catch (err) {
+    return null;
+  }
+}
+
 function verifyCaller_(idToken) {
   if (!idToken || typeof idToken !== 'string' || idToken.length > 5000) fail_('unauthenticated', 'Sign in with Google first.');
   var clientId = props_().getProperty('CLIENT_ID');
-  if (!clientId) fail_('not-configured', 'The submission service is not set up yet (CLIENT_ID missing). Run setup().');
+  if (!clientId || clientId.indexOf('__') === 0) fail_('not-configured', 'The submission service is not set up yet (CLIENT_ID missing). Run setup().');
+  var claims = unverifiedClaims_(idToken);
+  if (!claims || claims.aud !== clientId || !(Number(claims.exp) > Date.now() / 1000)) fail_('unauthenticated', 'Your sign-in could not be verified. Sign in again.');
   var cache = CacheService.getScriptCache();
   var key = 'tok_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken));
   var cached = cache.get(key);
@@ -77,13 +106,42 @@ function verifyCaller_(idToken) {
   if (String(info.email_verified) !== 'true') fail_('unauthenticated', 'Your Google email address is not verified.');
   var domain = props_().getProperty('ALLOWED_DOMAIN');
   if (domain && info.hd !== domain) fail_('forbidden', 'Use your school Google account (' + domain + ').');
-  if (!cached) cache.put(key, JSON.stringify({ aud: info.aud, iss: info.iss, exp: info.exp, email: info.email, email_verified: info.email_verified, sub: info.sub, hd: info.hd || '' }), Math.max(1, Math.min(300, Number(info.exp) - now)));
+  if (!info.sub) fail_('unauthenticated', 'Your sign-in could not be verified. Sign in again.');
+  if (!cached) cache.put(key, JSON.stringify({ aud: info.aud, iss: info.iss, exp: info.exp, email: info.email, email_verified: info.email_verified, sub: info.sub, hd: info.hd || '', nonce: info.nonce || '' }), Math.max(1, Math.min(300, Number(info.exp) - now)));
   var email = String(info.email).toLowerCase();
-  return { sub: String(info.sub), email: email, isTeacher: teacherEmails_().indexOf(email) >= 0 };
+  var sub = String(info.sub);
+  var isTeacher = teacherEmails_().indexOf(email) >= 0 && teacherSubOk_(email, sub);
+  // The token must have been requested for THIS service (see brokerNonce in the app).
+  var tokenBroker = ILP.brokerIdFromNonce(info.nonce);
+  if (!tokenBroker) fail_('unauthenticated', 'This sign-in was not made for this submission service. Sign in again.');
+  var bound = props_().getProperty('BROKER_ID');
+  if (!bound) {
+    if (!isTeacher) fail_('not-connected', 'Your teacher has not finished connecting this submission service yet.');
+    withLock_(function () {
+      if (!props_().getProperty('BROKER_ID')) props_().setProperty('BROKER_ID', tokenBroker);
+    });
+    bound = props_().getProperty('BROKER_ID');
+  }
+  if (tokenBroker !== bound) fail_('unauthenticated', 'This sign-in was made for a different submission service. Sign in again.');
+  return { sub: sub, email: email, isTeacher: isTeacher };
+}
+
+/** Pins each teacher email to the Google account id that first used it, so a reassigned address cannot inherit the role. */
+function teacherSubOk_(email, sub) {
+  var pins = JSON.parse(props_().getProperty('TEACHER_SUBS') || '{}');
+  if (pins[email]) return pins[email] === sub;
+  return withLock_(function () {
+    var fresh = JSON.parse(props_().getProperty('TEACHER_SUBS') || '{}');
+    if (!fresh[email]) {
+      fresh[email] = sub;
+      props_().setProperty('TEACHER_SUBS', JSON.stringify(fresh));
+    }
+    return fresh[email] === sub;
+  });
 }
 
 function teacherEmails_() {
-  var owner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+  var owner = String(props_().getProperty('OWNER_EMAIL') || Session.getEffectiveUser().getEmail() || '').toLowerCase();
   var extra = (props_().getProperty('TEACHERS') || '').split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(String);
   return [owner].concat(extra).filter(String);
 }
@@ -110,7 +168,7 @@ function setupStorage_() {
   }
   Object.keys(SHEETS).forEach(function (name) {
     var sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    if (sh.getLastRow() === 0) sh.appendRow(SHEETS[name]);
+    if (sh.getLastRow() === 0) sh.appendRow(SHEETS[name].map(cell_));
   });
   var first = ss.getSheetByName('Sheet1');
   if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
@@ -122,23 +180,52 @@ function sheet_(name) {
   return setupStorage_().ss.getSheetByName(name);
 }
 
+/**
+ * Sheets interprets written text like typed input: "=…" becomes a formula
+ * (which could send data to another site when the teacher opens the sheet),
+ * "007" becomes 7 and dates become date values. A leading apostrophe stores
+ * text exactly as given; it is not part of the value read back.
+ */
+function cell_(v) {
+  if (v === undefined || v === null) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') v = v.toISOString();
+  if (typeof v === 'string') return v === '' ? '' : "'" + v;
+  return v;
+}
+
+/** Values read back: dates (from rows written before 0.5.1, or edited by hand) as ISO text. */
+function value_(v) {
+  if (v === undefined || v === null) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') return isNaN(v.getTime()) ? '' : v.toISOString();
+  return v;
+}
+
+function rowValues_(name, obj) {
+  return SHEETS[name].map(function (h) { return cell_(obj[h]); });
+}
+
 function rows_(name) {
   var sh = sheet_(name);
   var values = sh.getDataRange().getValues();
   var head = values[0];
   return values.slice(1).map(function (r, i) {
     var o = { _row: i + 2 };
-    head.forEach(function (h, k) { o[h] = r[k] === undefined || r[k] === null ? '' : r[k]; });
+    head.forEach(function (h, k) { o[h] = value_(r[k]); });
     return o;
   });
 }
 
 function append_(name, obj) {
-  sheet_(name).appendRow(SHEETS[name].map(function (h) { return obj[h] === undefined ? '' : obj[h]; }));
+  sheet_(name).appendRow(rowValues_(name, obj));
 }
 
 function update_(name, rowNumber, obj) {
-  sheet_(name).getRange(rowNumber, 1, 1, SHEETS[name].length).setValues([SHEETS[name].map(function (h) { return obj[h] === undefined ? '' : obj[h]; })]);
+  sheet_(name).getRange(rowNumber, 1, 1, SHEETS[name].length).setValues([rowValues_(name, obj)]);
+}
+
+function timeOf_(v) {
+  var t = Date.parse(String(value_(v)));
+  return isNaN(t) ? null : t;
 }
 
 function childFolder_(parent, name) {
@@ -148,7 +235,11 @@ function childFolder_(parent, name) {
 
 function withLock_(fn) {
   var lock = LockService.getScriptLock();
-  lock.waitLock(20000);
+  try {
+    lock.waitLock(20000);
+  } catch (err) {
+    fail_('busy', 'The submission service is busy. It will be retried shortly.');
+  }
   try {
     return fn();
   } finally {
@@ -199,7 +290,7 @@ function publicAssignment_(a) {
 function whoami_(who) {
   if (who.isTeacher) {
     setupStorage_();
-    return { role: 'teacher', email: who.email, version: VERSION };
+    return { role: 'teacher', email: who.email, version: VERSION, coreOk: typeof ILP_CORE_BUILD !== 'undefined' && ILP_CORE_BUILD === CORE_BUILD };
   }
   return { role: 'student', email: who.email, version: VERSION };
 }
@@ -248,8 +339,8 @@ function putRoster_(req) {
     var others = all.filter(function (r) { return r.classId !== classId; }).map(stripRow_);
     var data = others.concat(result);
     sh.clearContents();
-    sh.appendRow(SHEETS.Roster);
-    if (data.length) sh.getRange(2, 1, data.length, SHEETS.Roster.length).setValues(data.map(function (o) { return SHEETS.Roster.map(function (h) { return o[h] === undefined ? '' : o[h]; }); }));
+    sh.appendRow(SHEETS.Roster.map(cell_));
+    if (data.length) sh.getRange(2, 1, data.length, SHEETS.Roster.length).setValues(data.map(function (o) { return rowValues_('Roster', o); }));
     return result.map(function (r) { return { studentNumber: r.studentNumber, name: r.name, email: r.email, classId: classId, status: r.status, googleSub: r.googleSub ? 'bound' : '', boundAt: r.boundAt }; });
   });
 }
@@ -291,7 +382,10 @@ function updateAssignment_(req) {
     var a = rows_('Assignments').filter(function (x) { return x.assignmentId === req.assignmentId; })[0];
     if (!a) fail_('not-found', 'Assignment not found.');
     if (req.closed !== undefined) a.closed = !!req.closed;
-    if (req.dueAt !== undefined) a.dueAt = req.dueAt || '';
+    if (req.dueAt !== undefined) {
+      if (req.dueAt && (typeof req.dueAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(req.dueAt) || isNaN(Date.parse(req.dueAt)))) fail_('bad-request', 'The due date is not valid.');
+      a.dueAt = req.dueAt ? new Date(req.dueAt).toISOString() : '';
+    }
     if (req.showScore !== undefined) a.showScore = !!req.showScore;
     update_('Assignments', a._row, a);
     return publicAssignment_(a);
@@ -301,17 +395,28 @@ function updateAssignment_(req) {
 function readReport_(req) {
   var s = rows_('Submissions').filter(function (x) { return x.assignmentId === req.assignmentId && x.attemptId === req.attemptId; })[0];
   if (!s) fail_('not-found', 'Submission not found.');
-  return JSON.parse(DriveApp.getFileById(s.reportFileId).getBlob().getDataAsString());
+  var file;
+  try {
+    file = DriveApp.getFileById(String(s.reportFileId));
+  } catch (err) {
+    fail_('not-found', 'The report file was moved or deleted in Drive.');
+  }
+  return JSON.parse(file.getBlob().getDataAsString());
 }
 
 /* ---------------------------------------------------------------- student */
 function loadAssignment_(assignmentId) {
   var row = rows_('Assignments').filter(function (x) { return x.assignmentId === assignmentId; })[0];
   if (!row) fail_('not-found', 'This assignment does not exist or was removed.');
-  var doc = JSON.parse(DriveApp.getFileById(row.fileId).getBlob().getDataAsString());
+  var doc;
+  try {
+    doc = JSON.parse(DriveApp.getFileById(String(row.fileId)).getBlob().getDataAsString());
+  } catch (err) {
+    fail_('not-found', 'This assignment’s file was moved or deleted in the teacher’s Drive.');
+  }
   doc.row = row;
   doc.assignment.closed = String(row.closed) === 'true';
-  doc.assignment.dueAt = row.dueAt ? String(row.dueAt) : null;
+  doc.assignment.dueAt = row.dueAt ? String(row.dueAt) : null; // value_ already turned date values into ISO text
   doc.assignment.showScore = String(row.showScore) !== 'false';
   doc.activity = ILP.parseActivity(doc.activity);
   return doc;
@@ -366,6 +471,7 @@ function studentSubmit_(who, req) {
   var parsed = ILP.SubmissionPayloadSchema.safeParse(req.payload);
   if (!parsed.success) fail_('bad-request', 'The submission is incomplete or damaged.');
   var p = parsed.data;
+  if (JSON.stringify(p.responses).length > ILP.MAX_RESPONSES_CHARS) fail_('bad-request', 'The answers are too large to submit.');
   var doc = loadAssignment_(p.assignmentId);
   var a = doc.assignment;
   if (who.isTeacher) fail_('forbidden', 'Teachers cannot submit as students. Use a student test account.');
@@ -383,13 +489,20 @@ function studentSubmit_(who, req) {
     }
     if (a.closed) fail_('closed', 'This assignment is closed.');
     var now = new Date();
-    var late = !!a.dueAt && now.toISOString() > a.dueAt;
+    var due = a.dueAt ? timeOf_(a.dueAt) : null;
+    var late = due !== null && now.getTime() > due;
     if (late && !a.allowLate) fail_('past-due', 'The due date has passed and late work is not accepted.');
     var used = {};
     subs.forEach(function (s) { used[s.attemptId] = true; });
     if (a.maxAttempts && Object.keys(used).length >= a.maxAttempts) fail_('attempt-limit', 'You have used all ' + a.maxAttempts + ' attempts.');
     // Question selection is re-derived from the attempt id, so a client cannot choose easier questions.
     var presented = ILP.selectItemIds(doc.activity, p.attemptId);
+    // Recordings are checked by their bytes, before anything is written.
+    var decoded = p.recordings.map(function (r) { return Utilities.base64Decode(r.base64); });
+    var recCheck = ILP.checkRecordings(doc.activity, presented, p.recordings.map(function (r, i) {
+      return { itemId: r.itemId, targetId: r.targetId, size: decoded[i].length, head: new Uint8Array(decoded[i].slice(0, 16).map(function (x) { return x & 0xff; })) };
+    }));
+    if (!recCheck.ok) fail_('bad-request', recCheck.problem);
     var attempt = {
       kind: 'ilp.attempt', schemaVersion: 1, id: p.attemptId, activityId: doc.activity.id, version: a.version, contentHash: a.contentHash, mode: 'student', assignmentId: a.id,
       attemptNumber: Object.keys(used).length + 1, status: 'submitted', presentedItemIds: presented, responses: p.responses, checks: p.checks, hintsUsed: p.hintsUsed, mediaPlays: {},
@@ -403,9 +516,9 @@ function studentSubmit_(who, req) {
     var file = reportFolder.createFile(Utilities.newBlob(JSON.stringify({ report: report, payload: { responses: p.responses, presentedItemIds: presented, clientScore: p.clientScore } }, null, 2), 'application/json', safeName_(student.studentNumber) + '__' + p.attemptId + '.json'));
     if (p.recordings.length) {
       var recFolder = childFolder_(childFolder_(classFolder, 'Recordings'), safeName_(a.title) + ' (' + a.id + ')');
-      p.recordings.forEach(function (r) {
-        var ext = (r.mime.split('/')[1] || 'webm').replace(/[^a-z0-9]/g, '');
-        recFolder.createFile(Utilities.newBlob(Utilities.base64Decode(r.base64), r.mime, safeName_(student.studentNumber) + '__' + p.attemptId + '__' + r.itemId + '__' + safeName_(r.targetId) + '.' + ext));
+      p.recordings.forEach(function (r, i) {
+        var mime = recCheck.mimes[i];
+        recFolder.createFile(Utilities.newBlob(decoded[i], mime, safeName_(student.studentNumber) + '__' + p.attemptId + '__' + r.itemId + '__' + safeName_(r.targetId) + '.' + ILP.EXTENSIONS[mime]));
       });
     }
     var receipt = {
@@ -440,7 +553,18 @@ function setup() {
   var CLIENT_ID = '__CLIENT_ID__';
   var ALLOWED_DOMAIN = ''; // e.g. 'myschool.kr' to accept only school accounts
   props_().setProperty('CLIENT_ID', CLIENT_ID);
+  props_().setProperty('OWNER_EMAIL', String(Session.getEffectiveUser().getEmail() || '').toLowerCase());
   if (ALLOWED_DOMAIN) props_().setProperty('ALLOWED_DOMAIN', ALLOWED_DOMAIN);
   var s = setupStorage_();
   Logger.log('Ready. Folder: ' + s.root.getUrl() + ' · Sheet: ' + s.ss.getUrl());
+}
+
+/**
+ * Run from the editor only if you moved the service to a NEW deployment (a new
+ * web-app URL). Afterwards press Connect in the app again; until then the
+ * service accepts nobody.
+ */
+function resetConnection() {
+  props_().deleteProperty('BROKER_ID');
+  Logger.log('Connection reset. Open the app → Classes → Submission service, paste the new URL and press Connect.');
 }

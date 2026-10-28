@@ -606,3 +606,5 @@ button.link.small-link { font-size: 0.85rem; margin-bottom: 4px; }
 .delivery li.dl-failed { background: var(--error-soft); }
 .delivery li.dl-needs-permission, .delivery li.dl-needs-sign-in { background: var(--warn-soft); }
 .assignment-meta { max-width: 820px; margin: 0 auto 6px; }
+
+.service-signin { margin: 0 auto 1rem; max-width: 60rem; }

@@ -60,12 +60,34 @@ export class FakeDrive {
   allFiles() { return [...this.files.values()]; }
 }
 
+/**
+ * Models how Google Sheets stores values written by appendRow / setValues, the
+ * way a typed entry would be: "=…" becomes a formula (recorded in `formulas`,
+ * read back as its unknown result), number-like text becomes a number,
+ * date-like text MAY become a Date, and a leading apostrophe forces plain text
+ * (the apostrophe is not part of the value read back). This is an approximation
+ * of Sheets' parser, kept deliberately pessimistic.
+ */
+export function sheetsStore(v: unknown, formulas: string[]): unknown {
+  if (typeof v !== 'string') return v;
+  if (v.startsWith("'")) return v.slice(1);
+  if (/^[=+@-]/.test(v) && v.length > 1 && !/^-?\d+(\.\d+)?$/.test(v)) {
+    formulas.push(v);
+    return '#FORMULA-RESULT';
+  }
+  if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
+  if (/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(v)) return new Date(v);
+  if (v === 'TRUE' || v === 'true') return true;
+  if (v === 'FALSE' || v === 'false') return false;
+  return v;
+}
+
 class FakeSheet {
   rows: unknown[][] = [];
-  constructor(public name: string) {}
+  constructor(public name: string, public formulas: string[]) {}
   getName() { return this.name; }
   getLastRow() { return this.rows.length; }
-  appendRow(r: unknown[]) { this.rows.push([...r]); }
+  appendRow(r: unknown[]) { this.rows.push(r.map((v) => sheetsStore(v, this.formulas))); }
   clearContents() { this.rows = []; }
   getDataRange() { return { getValues: () => this.rows.map((r) => [...r]) }; }
   getRange(row: number, col: number, nr: number, nc: number) {
@@ -74,7 +96,7 @@ class FakeSheet {
         for (let i = 0; i < nr; i++) {
           while (this.rows.length < row + i) this.rows.push([]);
           const target = this.rows[row - 1 + i]!;
-          for (let j = 0; j < nc; j++) target[col - 1 + j] = vals[i]![j];
+          for (let j = 0; j < nc; j++) target[col - 1 + j] = sheetsStore(vals[i]![j], this.formulas);
         }
       },
     };
@@ -83,35 +105,44 @@ class FakeSheet {
 
 class FakeSpreadsheet {
   id = `sheet_${nextId++}`;
-  sheets: FakeSheet[] = [new FakeSheet('Sheet1')];
+  formulas: string[] = [];
+  sheets: FakeSheet[] = [new FakeSheet('Sheet1', this.formulas)];
   getId() { return this.id; }
   getUrl() { return `https://docs.google.com/spreadsheets/d/${this.id}`; }
   getSheetByName(n: string) { return this.sheets.find((s) => s.name === n) ?? null; }
-  insertSheet(n: string) { const s = new FakeSheet(n); this.sheets.push(s); return s; }
+  insertSheet(n: string) { const s = new FakeSheet(n, this.formulas); this.sheets.push(s); return s; }
   getSheets() { return this.sheets; }
   deleteSheet(s: FakeSheet) { this.sheets.splice(this.sheets.indexOf(s), 1); }
 }
 
-export interface TokenInfo { aud: string; iss: string; exp: number; email: string; email_verified: string; sub: string; hd?: string }
+export interface TokenInfo { aud: string; iss: string; exp: number; email: string; email_verified: string; sub: string; hd?: string; nonce?: string }
 
-export function createBroker(opts: { teacher: string; clientId: string }) {
+const b64url = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+/** JWT-shaped token. Its signature is NOT real: validity is decided by the tokeninfo double, standing in for Google's signature check. */
+export const fakeJwt = (payload: Record<string, unknown>) => `${b64url({ alg: 'RS256', kid: 'test' })}.${b64url(payload)}.${randomUUID().replace(/-/g, '')}`;
+
+export function createBroker(opts: { teacher: string; clientId: string; brokerId?: string }) {
   const drive = new FakeDrive();
   const sheets = new Map<string, FakeSpreadsheet>();
   const props = new Map<string, string>();
   const cache = new Map<string, string>();
   const tokens = new Map<string, TokenInfo>();
   let tokenFetches = 0;
+  const fetchedUrls: string[] = [];
+  const lock = { busy: false };
+  const logs: string[] = [];
   const ctx: Record<string, unknown> = {
-    console,
-    Logger: { log: () => {} },
+    console: { log: (...a: unknown[]) => logs.push(a.join(' ')), error: (...a: unknown[]) => logs.push(a.join(' ')), warn: (...a: unknown[]) => logs.push(a.join(' ')) },
+    Logger: { log: (...a: unknown[]) => logs.push(a.join(' ')) },
     ContentService: { MimeType: { JSON: 'application/json' }, createTextOutput: (s: string) => ({ s, setMimeType() { return this; }, getContent() { return s; } }) },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props.get(k) ?? null, setProperty: (k: string, v: string) => props.set(k, v) }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props.get(k) ?? null, setProperty: (k: string, v: string) => props.set(k, v), deleteProperty: (k: string) => props.delete(k) }) },
     CacheService: { getScriptCache: () => ({ get: (k: string) => cache.get(k) ?? null, put: (k: string, v: string) => cache.set(k, v) }) },
-    LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => { if (lock.busy) throw new Error('Lock timeout: another process was holding the lock for too long.'); }, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => opts.teacher }) },
     UrlFetchApp: {
       fetch: (url: string) => {
         tokenFetches++;
+        fetchedUrls.push(url);
         const t = decodeURIComponent(url.split('id_token=')[1] ?? '');
         const info = tokens.get(t);
         return { getResponseCode: () => (info ? 200 : 400), getContentText: () => JSON.stringify(info ?? { error: 'invalid_token' }) };
@@ -122,6 +153,7 @@ export function createBroker(opts: { teacher: string; clientId: string }) {
       base64Encode: (b: number[] | string) => (typeof b === 'string' ? Buffer.from(b) : unsigned(b)).toString('base64'),
       base64EncodeWebSafe: (b: number[]) => unsigned(b).toString('base64url'),
       base64Decode: (s: string) => signed(Buffer.from(s, 'base64')),
+      base64DecodeWebSafe: (s: string) => signed(Buffer.from(s, 'base64url')),
       DigestAlgorithm: { SHA_256: 'sha256' },
       computeDigest: (_a: string, s: string) => signed(createHash('sha256').update(s).digest()),
       computeHmacSha256Signature: (v: string, k: string) => signed(createHmac('sha256', k).update(v).digest()),
@@ -151,11 +183,15 @@ export function createBroker(opts: { teacher: string; clientId: string }) {
     const out = (ctx.doPost as (e: unknown) => { getContent(): string })({ postData: { contents: JSON.stringify({ action, idToken, ...body }) } });
     return JSON.parse(out.getContent()) as { ok: boolean; result?: any; error?: string; message?: string };
   };
-  const signIn = (email: string, sub: string, extra: Partial<TokenInfo> = {}, token = `tok-${sub}-${randomUUID()}`) => {
-    tokens.set(token, { aud: opts.clientId, iss: 'https://accounts.google.com', exp: Math.floor(Date.now() / 1000) + 3600, email, email_verified: 'true', sub, ...extra });
-    return token;
+  /** Default nonce: tokens minted for this broker (as the app requests them). */
+  const ownNonce = opts.brokerId ? `ilp-b.${opts.brokerId}` : undefined;
+  const signIn = (email: string, sub: string, extra: Partial<TokenInfo> = {}, token?: string) => {
+    const info: TokenInfo = { aud: opts.clientId, iss: 'https://accounts.google.com', exp: Math.floor(Date.now() / 1000) + 3600, email, email_verified: 'true', sub, ...(ownNonce ? { nonce: ownNonce } : {}), ...extra };
+    const t = token ?? fakeJwt({ ...info, email_verified: info.email_verified === 'true' });
+    tokens.set(t, info);
+    return t;
   };
-  return { ctx, drive, sheets, props, call, signIn, tokenFetches: () => tokenFetches };
+  return { ctx, drive, sheets, props, call, signIn, lock, logs, fetchedUrls, tokenFetches: () => tokenFetches };
 }
 
 /** Location of the built broker files (works from any vitest project root). */

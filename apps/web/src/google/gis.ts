@@ -1,3 +1,4 @@
+import { brokerIdFromNonce, brokerNonce } from '@ilp/core';
 import { DRIVE_SCOPE, GOOGLE_CLIENT_ID } from '../config';
 
 /**
@@ -6,6 +7,9 @@ import { DRIVE_SCOPE, GOOGLE_CLIENT_ID } from '../config';
  * - Drive access uses a separate, short-lived access token for the limited
  *   `drive.file` scope (only files this app creates or the user picks).
  * - Tokens live in memory only; nothing is written to localStorage.
+ * - Each ID token is requested for ONE teacher's submission service (its id is
+ *   the token's nonce), and is only ever sent to that service. A token that a
+ *   malicious service captures is therefore refused by every other service.
  */
 declare global {
   interface Window {
@@ -36,15 +40,21 @@ export interface Profile {
 
 export interface AuthState {
   profile: Profile | null;
-  idToken: string | null;
-  idTokenExp: number;
+  /** Services (broker ids) this session holds a valid sign-in for. */
+  services: string[];
+  /** A service that needs the user to press "Sign in" again (silent sign-in was not possible). */
+  needsSignInFor: string | null;
 }
 
-let state: AuthState = { profile: null, idToken: null, idTokenExp: 0 };
+const empty = (): AuthState => ({ profile: null, services: [], needsSignInFor: null });
+let state: AuthState = empty();
+const serviceTokens = new Map<string, { token: string; exp: number }>();
+const waiters = new Map<string, Array<() => void>>();
+let defaultService: string | null = null;
+let initializedFor: string | null | undefined;
 let access: { token: string; exp: number } | null = null;
 const listeners = new Set<(s: AuthState) => void>();
 let scriptPromise: Promise<void> | null = null;
-let initialized = false;
 
 export function onAuthChange(fn: (s: AuthState) => void): () => void {
   listeners.add(fn);
@@ -71,42 +81,62 @@ export function loadGis(): Promise<void> {
 }
 
 /** Decode (not verify) the ID token payload. Verification happens in the broker. */
-export function decodeIdToken(token: string): Profile & { exp: number } {
+export function decodeIdToken(token: string): Profile & { exp: number; nonce: string } {
   const part = token.split('.')[1] ?? '';
   const json = decodeURIComponent(Array.from(atob(part.replace(/-/g, '+').replace(/_/g, '/')), (c) => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`).join(''));
   const p = JSON.parse(json) as Record<string, unknown>;
-  return { sub: String(p.sub), email: String(p.email ?? '').toLowerCase(), name: String(p.name ?? ''), hd: String(p.hd ?? ''), exp: Number(p.exp ?? 0) };
+  return { sub: String(p.sub), email: String(p.email ?? '').toLowerCase(), name: String(p.name ?? ''), hd: String(p.hd ?? ''), exp: Number(p.exp ?? 0), nonce: String(p.nonce ?? '') };
 }
+
+/** The service a plain sign-in (Settings, header) is made for: the teacher's own, when connected. */
+export function setDefaultService(brokerId: string | null): void {
+  defaultService = brokerId;
+}
+
+const validServices = () => [...serviceTokens].filter(([, t]) => Date.now() < t.exp - 60_000).map(([id]) => id);
 
 export function acceptCredential(credential: string): void {
   const p = decodeIdToken(credential);
-  if (state.profile && state.profile.sub !== p.sub) access = null; // different account: drop Drive access
-  state = { profile: { sub: p.sub, email: p.email, name: p.name, hd: p.hd }, idToken: credential, idTokenExp: p.exp * 1000 };
+  if (state.profile && state.profile.sub !== p.sub) {
+    access = null; // different account: drop Drive access and every service sign-in
+    serviceTokens.clear();
+  }
+  const service = brokerIdFromNonce(p.nonce);
+  if (service) serviceTokens.set(service, { token: credential, exp: p.exp * 1000 });
+  // Same account: keep the same profile object, so pages that depend on it do not restart work.
+  const same = state.profile && state.profile.sub === p.sub && state.profile.email === p.email && state.profile.name === p.name && state.profile.hd === p.hd;
+  state = { profile: same ? state.profile : { sub: p.sub, email: p.email, name: p.name, hd: p.hd }, services: validServices(), needsSignInFor: state.needsSignInFor === service ? null : state.needsSignInFor };
   emit();
+  if (service) {
+    waiters.get(service)?.forEach((w) => w());
+    waiters.delete(service);
+  }
 }
 
-export async function initSignIn(): Promise<void> {
+/** (Re)initialises Google sign-in so the next credential is minted for `brokerId` (or the default service). */
+export async function initSignIn(brokerId: string | null = defaultService): Promise<void> {
   await loadGis();
-  if (initialized) return;
+  if (initializedFor === brokerId) return;
   window.google!.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
     callback: (r: { credential: string }) => acceptCredential(r.credential),
+    ...(brokerId ? { nonce: brokerNonce(brokerId) } : {}),
     auto_select: true,
     use_fedcm_for_prompt: true,
     itp_support: true,
   });
-  initialized = true;
+  initializedFor = brokerId;
 }
 
-export async function renderSignInButton(el: HTMLElement): Promise<void> {
-  await initSignIn();
+export async function renderSignInButton(el: HTMLElement, brokerId: string | null = defaultService): Promise<void> {
+  await initSignIn(brokerId);
   window.google!.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill' });
 }
 
 /** Silent re-sign-in after a reload (One Tap / FedCM, if the user signed in before). */
-export async function trySilentSignIn(): Promise<void> {
+export async function trySilentSignIn(brokerId: string | null = defaultService): Promise<void> {
   try {
-    await initSignIn();
+    await initSignIn(brokerId);
     window.google!.accounts.id.prompt();
   } catch {
     /* offline or blocked: the user can press the button */
@@ -117,15 +147,42 @@ export function signOut(): void {
   if (access) window.google?.accounts.oauth2.revoke(access.token);
   window.google?.accounts.id.disableAutoSelect();
   access = null;
-  state = { profile: null, idToken: null, idTokenExp: 0 };
+  serviceTokens.clear();
+  state = empty();
   emit();
 }
 
-/** A valid ID token, or an error asking the user to sign in again. */
-export function currentIdToken(): string {
-  if (!state.idToken) throw new AuthError('Sign in with Google first.');
-  if (Date.now() > state.idTokenExp - 60_000) throw new AuthError('Your Google sign-in has expired. Sign in again.');
-  return state.idToken;
+/** A valid ID token for this service, if the session holds one. */
+export function currentIdToken(brokerId: string): string {
+  const t = serviceTokens.get(brokerId);
+  if (!state.profile) throw new AuthError('Sign in with Google first.');
+  if (!t || Date.now() > t.exp - 60_000) throw new AuthError('Confirm your Google sign-in to continue.');
+  return t.token;
+}
+
+/**
+ * An ID token for this service. When the session has none (first contact,
+ * expired), asks Google silently; if that is not possible, flags the service so
+ * the app shows a "Sign in" button for it, and throws AuthError.
+ */
+let silentWaitMs = 8000;
+export async function idTokenFor(brokerId: string, waitMs = silentWaitMs): Promise<string> {
+  try {
+    return currentIdToken(brokerId);
+  } catch (e) {
+    if (!state.profile) throw e;
+  }
+  const got = new Promise<boolean>((resolve) => {
+    const list = waiters.get(brokerId) ?? [];
+    list.push(() => resolve(true));
+    waiters.set(brokerId, list);
+    setTimeout(() => resolve(false), waitMs);
+  });
+  await trySilentSignIn(brokerId);
+  if (await got) return currentIdToken(brokerId);
+  state = { ...state, services: validServices(), needsSignInFor: brokerId };
+  emit();
+  throw new AuthError('Confirm your Google sign-in to continue.');
 }
 
 export class AuthError extends Error {}
@@ -152,11 +209,19 @@ export async function driveAccessToken(interactive = true): Promise<string> {
   });
 }
 
+/** Test hook: how long to wait for a silent sign-in. */
+export function __setSilentWaitForTests(ms: number): void {
+  silentWaitMs = ms;
+}
+
 /** Test hook: reset module state. */
 export function __resetAuthForTests(): void {
-  state = { profile: null, idToken: null, idTokenExp: 0 };
+  state = empty();
   access = null;
-  initialized = false;
+  serviceTokens.clear();
+  waiters.clear();
+  defaultService = null;
+  initializedFor = undefined;
   scriptPromise = null;
   emit();
 }

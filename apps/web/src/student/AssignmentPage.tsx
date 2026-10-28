@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { contentHash, type PublishedVersion } from '@ilp/core';
+import { contentHash, parseActivity, sniffAnyType, type PublishedVersion } from '@ilp/core';
 import { broker } from '../google/broker';
 import { AccountPanel } from '../google/SignIn';
 import { useAuth } from '../google/useAuth';
@@ -47,9 +47,14 @@ export function AssignmentPage({ assignmentId, brokerId }: { assignmentId: strin
           if (await getAsset(id)) continue;
           const a = await broker.studentAsset(bid, assignmentId, id);
           const bytes = Uint8Array.from(atob(a.base64), (c) => c.charCodeAt(0));
-          await putAsset({ id, mime: a.mime as never, bytes, name: id, addedAt: new Date().toISOString() });
+          // The type comes from the bytes, never from the service's word for it (no HTML/SVG can slip in).
+          const mime = sniffAnyType(bytes);
+          if (!mime) throw new Error('The assignment contains a file this app cannot open safely. Ask your teacher.');
+          await putAsset({ id, mime, bytes, name: id, addedAt: new Date().toISOString() });
         }
-        const activity = { ...r.activity, id: assignmentId, title: r.assignment.title, settings: { ...r.activity.settings, maxAttempts: r.assignment.maxAttempts ?? r.activity.settings.maxAttempts } };
+        // Validate everything the service sent before it is stored or shown.
+        const checked = parseActivity(r.activity);
+        const activity = { ...checked, id: assignmentId, title: r.assignment.title, settings: { ...checked.settings, maxAttempts: r.assignment.maxAttempts ?? r.activity.settings.maxAttempts } };
         const hash = await contentHash(activity);
         const existing = (await listVersions(assignmentId)).find((v) => v.contentHash === hash);
         const version: PublishedVersion = existing ?? { kind: 'ilp.publishedVersion', activityId: assignmentId, version: ((await listVersions(assignmentId)).at(-1)?.version ?? 0) + 1, publishedAt: r.assignment.createdAt, contentHash: hash, activity };
@@ -66,7 +71,8 @@ export function AssignmentPage({ assignmentId, brokerId }: { assignmentId: strin
     return () => {
       cancelled = true;
     };
-  }, [assignmentId, brokerId, profile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a different account should reload
+  }, [assignmentId, brokerId, profile?.sub]);
 
   if (state) {
     const a = state.meta.assignment;

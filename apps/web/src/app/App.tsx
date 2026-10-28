@@ -13,7 +13,9 @@ import { ServiceSetup } from '../teacher/ServiceSetup';
 import { AssignmentPage } from '../student/AssignmentPage';
 import { useAuth } from '../google/useAuth';
 import { startOutboxWorker } from '../google/outbox';
-import { trySilentSignIn } from '../google/gis';
+import { setDefaultService, trySilentSignIn } from '../google/gis';
+import { getBrokerId } from '../google/brokerSetting';
+import { ServiceSignIn } from '../google/SignIn';
 
 function Home() {
   return (
@@ -44,7 +46,11 @@ export function App() {
   const [section, a, b] = path;
 
   useEffect(() => {
-    void trySilentSignIn();
+    // Sign-ins are minted per submission service; a teacher's default is their own service.
+    void getBrokerId().then((id) => {
+      setDefaultService(id ?? null);
+      return trySilentSignIn();
+    });
     return startOutboxWorker();
   }, []);
 
@@ -83,6 +89,7 @@ export function App() {
         {profile && <a href="#/settings" className="account-chip" title="Google account">{profile.email}</a>}
       </header>
       <UpdateBanner />
+      <ServiceSignIn />
       <main id="main" tabIndex={-1}>{page}</main>
     </>
   );

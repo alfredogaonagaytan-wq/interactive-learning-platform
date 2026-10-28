@@ -1,7 +1,7 @@
 import type { Report, SubmissionPayload } from '@ilp/core';
 import { getOutbox, listOutbox, putOutbox, type OutboxEntry } from '../storage/db';
 import { broker, BrokerError } from './broker';
-import { AuthError } from './gis';
+import { AuthError, onAuthChange } from './gis';
 import { DriveError, studentSubmissionsFolder, uploadFile } from './drive';
 import { reportToHtml } from './reportHtml';
 import { safeFilename } from '../app/util';
@@ -86,7 +86,10 @@ async function deliverTeacher(e: OutboxEntry, force: boolean) {
   } catch (err) {
     t.tries++;
     t.error = (err as Error).message;
-    if (err instanceof AuthError) t.state = 'needs-sign-in';
+    if (err instanceof AuthError) {
+      t.state = 'needs-sign-in'; // retried when the user signs in for this service (see startOutboxWorker), not by polling
+      t.nextAt = Date.now() + backoff(t.tries);
+    }
     else if (err instanceof BrokerError && (err.transient || err.code === 'unauthenticated')) {
       t.state = err.code === 'unauthenticated' ? 'needs-sign-in' : 'pending';
       t.nextAt = Date.now() + backoff(t.tries);
@@ -132,12 +135,30 @@ async function deliverDrive(e: OutboxEntry, interactive: boolean, force: boolean
 
 let timer: ReturnType<typeof setInterval> | null = null;
 /** Background retries: when the device comes online, and every 30 s while anything is pending. */
+/** After a sign-in for a service, deliveries waiting for it are due at once. */
+async function processOutboxAfterSignIn(services: string[]) {
+  for (const e of await listOutbox()) {
+    if (e.teacher.state === 'needs-sign-in' && services.includes(e.brokerId)) {
+      e.teacher.nextAt = 0;
+      await putOutbox(e);
+    }
+  }
+  await processOutbox();
+}
+
 export function startOutboxWorker(): () => void {
   const kick = () => void processOutbox();
   window.addEventListener('online', kick);
   timer ??= setInterval(kick, 30_000);
+  let known = '';
+  const offAuth = onAuthChange((s) => {
+    const now = s.services.join(' ');
+    if (now !== known && s.services.some((x) => !known.split(' ').includes(x))) void processOutboxAfterSignIn(s.services);
+    known = now;
+  });
   kick();
   return () => {
+    offAuth();
     window.removeEventListener('online', kick);
     if (timer) clearInterval(timer);
     timer = null;

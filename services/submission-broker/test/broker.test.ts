@@ -26,8 +26,9 @@ let teacher: string;
 let classId: string;
 
 async function setupClass() {
-  b = createBroker({ teacher: TEACHER, clientId: CLIENT });
+  b = createBroker({ teacher: TEACHER, clientId: CLIENT, brokerId: 'AKfycbTEST_broker_0123456789' });
   teacher = b.signIn(TEACHER, 'sub-teacher');
+  expect(b.call('whoami', teacher).ok).toBe(true); // "Connect": records this service's id
   classId = b.call('classes.create', teacher, { name: 'Grade 7 Science', section: 'A' }).result.classId;
   const r = b.call('roster.put', teacher, { classId, rows: [
     { studentNumber: 'S01', name: 'Test Student One', email: 'student1@example.com' },
@@ -189,9 +190,11 @@ describe('submissions', () => {
   });
 
   it('stores submitted recordings in the class Recordings folder', () => {
-    const asg = assign().result;
+    const a = activity();
+    a.items.push({ type: 'speaking', id: 'itm_sp', audioCue: null, targets: [{ id: 't1', text: 'Hello' }], submission: 'optional', skills: [] } as unknown as Item);
+    const asg = b.call('assignments.create', teacher, { classId, activity: a, version: 1, contentHash: 'x' }).result;
     const st = b.signIn('student1@example.com', 'sub-1');
-    b.call('student.submit', st, payload(asg.id, 'att_rec', right, null, { recordings: [{ id: 'rec_1', itemId: 'itm_sp', targetId: 't1', mime: 'audio/webm', base64: Buffer.from('fake-audio').toString('base64') }] }));
+    b.call('student.submit', st, payload(asg.id, 'att_rec', right, null, { recordings: [{ id: 'rec_1', itemId: 'itm_sp', targetId: 't1', mime: 'audio/webm', base64: Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(40)]).toString('base64') }] }));
     const rec = b.drive.allFiles().find((f) => f.getName().startsWith('S01__att_rec__itm_sp__t1'))!;
     expect(rec.parent!.path()).toMatch(/Recordings\/Fictional quiz/);
   });

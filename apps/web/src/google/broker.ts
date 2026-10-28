@@ -1,5 +1,5 @@
 import { brokerUrl, type Assignment, type Receipt, type RosterRow, type SubmissionPayload, type Activity } from '@ilp/core';
-import { currentIdToken } from './gis';
+import { idTokenFor } from './gis';
 
 /**
  * Client for a teacher's submission broker (Apps Script web app).
@@ -22,7 +22,8 @@ export interface SubmissionRow { receivedAt: string; assignmentId: string; class
 export interface StudentAssignment { assignment: Assignment; activity: Activity; assetIds: string[]; studentNumber: string; submissions: number }
 
 export async function brokerCall<T>(brokerId: string, action: string, body: Record<string, unknown> = {}, timeoutMs = 60_000): Promise<T> {
-  const idToken = currentIdToken();
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new BrokerError('network', 'You are offline. It will be sent when you are back online.');
+  const idToken = await idTokenFor(brokerId); // minted for this service only
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res: Response;
@@ -45,7 +46,7 @@ export async function brokerCall<T>(brokerId: string, action: string, body: Reco
 }
 
 export const broker = {
-  whoami: (id: string) => brokerCall<{ role: 'teacher' | 'student'; email: string; version: string }>(id, 'whoami'),
+  whoami: (id: string) => brokerCall<{ role: 'teacher' | 'student'; email: string; version: string; coreOk?: boolean }>(id, 'whoami'),
   listClasses: (id: string) => brokerCall<ClassInfo[]>(id, 'classes.list'),
   createClass: (id: string, name: string, section: string) => brokerCall<ClassInfo>(id, 'classes.create', { name, section }),
   getRoster: (id: string, classId: string) => brokerCall<RosterRow[]>(id, 'roster.get', { classId }),

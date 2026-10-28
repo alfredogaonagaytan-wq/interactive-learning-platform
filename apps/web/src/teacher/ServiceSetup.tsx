@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { parseBrokerId } from '@ilp/core';
 import { broker } from '../google/broker';
 import { getBrokerId, setBrokerId } from '../google/brokerSetting';
+import { setDefaultService } from '../google/gis';
+import { BROKER_VERSION } from '../config';
 import { AccountPanel } from '../google/SignIn';
 import { useAuth } from '../google/useAuth';
 import { GOOGLE_CLIENT_ID } from '../config';
@@ -37,10 +39,16 @@ export function ServiceSetup() {
       const who = await broker.whoami(id);
       if (who.role !== 'teacher') return setMsg({ kind: 'error', text: `That service belongs to another teacher (you are signed in as ${who.email}).` });
       await setBrokerId(id);
+      setDefaultService(id);
+      if (who.version !== BROKER_VERSION || who.coreOk === false) {
+        setSaved(id);
+        return setMsg({ kind: 'error', text: who.version !== BROKER_VERSION ? `Connected, but your service runs version ${who.version} and this app expects ${BROKER_VERSION}. Copy all three files again, save, and deploy a new version (Deploy → Manage deployments → Edit → New version).` : `Connected, but Code.gs and GradingCore were copied from different versions. Copy all three files again, save, and deploy a new version (Deploy → Manage deployments → Edit → New version).` });
+      }
       setSaved(id);
       setMsg({ kind: 'ok', text: `Connected. Your private folder and roster sheet are ready in your Google Drive (service version ${who.version}).` });
     } catch (e) {
-      setMsg({ kind: 'error', text: (e as Error).message });
+      const code = (e as { code?: string }).code;
+      setMsg({ kind: 'error', text: code === 'not-connected' ? 'This service was deployed from a different Google account than the one you are signed in with. Sign in with the account that owns the script.' : (e as Error).message });
     }
   };
 
