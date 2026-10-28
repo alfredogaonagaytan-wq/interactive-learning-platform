@@ -581,3 +581,28 @@ button.link.small-link { font-size: 0.85rem; margin-bottom: 4px; }
 .level-grid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .level-edit { display: grid; gap: 4px; }
 .level-edit input[type='number'] { max-width: 100%; }
+
+/* Phase 5: accounts, classes, delivery ------------------------------ */
+.account-chip { font-size: 0.8rem; color: var(--text-muted); text-decoration: none; max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-panel.signed-in { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.gsi-button { min-height: 44px; }
+.setup-steps { display: grid; gap: 14px; padding-left: 22px; }
+.setup-steps li { line-height: 1.6; }
+.copy-row { margin: 6px 0; }
+.classes-grid { display: grid; gap: 16px; }
+@media (min-width: 900px) { .classes-grid { grid-template-columns: 280px 1fr; align-items: start; } }
+.class-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 4px; }
+.add-class { display: grid; gap: 6px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.add-class label { font-weight: 600; }
+.roster-table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+.roster-table th, .roster-table td { border-bottom: 1px solid var(--border); padding: 4px 6px; text-align: left; }
+.roster-table input, .roster-table select { min-height: 36px; padding: 4px 6px; }
+.assignment-list { list-style: none; padding: 0; display: grid; gap: 12px; }
+.assignment-row { border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.assignment-row input[readonly] { font-family: var(--mono); font-size: 0.8rem; }
+.delivery ul { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; }
+.delivery li { padding: 6px 10px; border-radius: 8px; background: var(--surface-2); }
+.delivery li.dl-done { background: var(--ok-soft); }
+.delivery li.dl-failed { background: var(--error-soft); }
+.delivery li.dl-needs-permission, .delivery li.dl-needs-sign-in { background: var(--warn-soft); }
+.assignment-meta { max-width: 820px; margin: 0 auto 6px; }

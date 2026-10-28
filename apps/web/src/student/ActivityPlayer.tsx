@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   attemptsRemaining, buildReport, canCheckItem, canRevealAnswers, canShowResults, getItemDefinition, gradeActivity, presentedItems, randomId, reportToCsv,
-  selectItemIds, type Attempt, type Item, type ItemResult, type PublishedVersion,
+  selectItemIds, type Assignment, type Attempt, type Item, type ItemResult, type PublishedVersion,
 } from '@ilp/core';
 import { getPlugin } from '../plugins/registry';
-import { deleteRecordingsExcept, listAttempts, putAttempt } from '../storage/db';
+import { deleteRecordingsExcept, getRecording, listAttempts, putAttempt } from '../storage/db';
+import { enqueueSubmission, processOutbox } from '../google/outbox';
+import { SubmissionStatus } from './SubmissionStatus';
 import { getRetention } from '../storage/retention';
 import { AudioPlayer } from '../ui/audioPlayer';
 import { useAssetUrl } from '../storage/assets';
@@ -19,23 +21,25 @@ interface Props {
   version: PublishedVersion;
   mode: PlayerMode;
   onExit?: () => void;
+  /** Present when completing a teacher's assignment: submissions are delivered to the teacher's service. */
+  assignment?: { brokerId: string; assignment: Assignment; studentNumber: string };
 }
 
 const SAVE_DELAY_MS = 300;
 
-function newAttempt(v: PublishedVersion, mode: PlayerMode, attemptNumber: number): Attempt {
+function newAttempt(v: PublishedVersion, mode: PlayerMode, attemptNumber: number, assignmentId: string | null = null): Attempt {
   const now = new Date().toISOString();
   const id = randomId('att');
   return {
     kind: 'ilp.attempt', schemaVersion: 1, id, activityId: v.activityId, version: v.version, contentHash: v.contentHash,
-    mode: mode === 'student' ? 'student' : 'preview', assignmentId: null, attemptNumber, status: 'in-progress',
+    mode: mode === 'student' ? 'student' : 'preview', assignmentId, attemptNumber, status: 'in-progress',
     // Question pools and shuffling are resolved once, when the attempt starts.
     presentedItemIds: selectItemIds(v.activity, id),
     responses: {}, checks: {}, hintsUsed: {}, mediaPlays: {}, startedAt: now, updatedAt: now, submittedAt: null, sync: 'local-only',
   };
 }
 
-export function ActivityPlayer({ version, mode, onExit }: Props) {
+export function ActivityPlayer({ version, mode, onExit, assignment }: Props) {
   const activity = version.activity;
   const settings = activity.settings;
   const persistent = mode !== 'teacher-preview';
@@ -124,7 +128,7 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
         setSaveState({ state: 'saved', at: inProgress.updatedAt });
       } else if (submitted.length > 0) setAttempt(submitted.at(-1)!);
       else {
-        const a = newAttempt(version, mode, 1);
+        const a = newAttempt(version, mode, 1, assignment?.assignment.id ?? null);
         setAttempt(a);
         if (persistent) await putAttempt(a);
       }
@@ -198,12 +202,31 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
     }
     setHistory((h) => [...h, done]);
     setChecked({});
+    if (assignment && mode === 'student') {
+      // Queue delivery to the teacher's service and the student's Drive; it survives reloads and retries offline.
+      const recordings = [];
+      for (const it of items) {
+        if (it.type !== 'speaking' || it.submission === 'none') continue;
+        const r = done.responses[it.id] as { targets?: Record<string, { selectedRecordingId: string | null }> } | undefined;
+        for (const [targetId, t] of Object.entries(r?.targets ?? {})) {
+          const rec = t.selectedRecordingId ? await getRecording(t.selectedRecordingId) : undefined;
+          if (rec) recordings.push({ id: rec.id, itemId: it.id, targetId, mime: rec.mime, base64: toBase64(rec.bytes) });
+        }
+      }
+      const local = gradeActivity(activity, done.responses as never, done.presentedItemIds ?? null);
+      await enqueueSubmission({
+        brokerId: assignment.brokerId, assignmentId: assignment.assignment.id, title: assignment.assignment.title,
+        payload: { assignmentId: assignment.assignment.id, attemptId: done.id, attemptNumber: done.attemptNumber, startedAt: done.startedAt, submittedAt: done.submittedAt!, presentedItemIds: done.presentedItemIds ?? null, responses: done.responses, checks: done.checks, hintsUsed: done.hintsUsed, clientScore: assignment.assignment.grading === 'hidden' ? null : local.score, recordings },
+        report: buildReport(activity, done, { revealAnswers: false, studentNumber: assignment.studentNumber, classId: assignment.assignment.classId }),
+      });
+      void processOutbox({ interactive: true });
+    }
     setAnnounce('Submitted.');
     window.scrollTo({ top: 0 });
   };
 
   const tryAgain = () => {
-    const a = newAttempt(version, mode, history.length + 1);
+    const a = newAttempt(version, mode, history.length + 1, assignment?.assignment.id ?? null);
     setChecked({});
     setHintsShown(new Set());
     persist(a, true);
@@ -256,9 +279,8 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
           ) : (
             <p>Your work was submitted on {formatTime(attempt.submittedAt!)}. Your teacher will release the results.</p>
           )}
-          <p className="meta">
-            {mode === 'student' && <>Saved on this device only. Sending to your teacher’s Google Drive arrives in a later version.</>}
-          </p>
+          {mode === 'student' && !assignment && <p className="meta">Saved on this device only (this activity was not assigned through a teacher’s link).</p>}
+          {assignment && mode === 'student' && <SubmissionStatus attemptId={attempt.id} />}
           <div className="actions">
             {showResults && (
               <>
@@ -327,6 +349,12 @@ export function ActivityPlayer({ version, mode, onExit }: Props) {
       )}
     </article>
   );
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
 }
 
 function CuePlayer({ cue, audio, ctx, label }: { cue: NonNullable<Extract<Item, { type: 'multiple-choice' }>['audioCue']>; audio: Extract<Item, { type: 'audio' }>; ctx: PlayerContext; label: string }) {

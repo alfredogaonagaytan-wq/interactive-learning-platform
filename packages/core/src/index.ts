@@ -40,3 +40,5 @@ export * from './grading/engine';
 export * from './report/report';
 export * from './package/package';
 export * from './publish';
+export * from './classroom/assignment';
+export * from './classroom/roster';

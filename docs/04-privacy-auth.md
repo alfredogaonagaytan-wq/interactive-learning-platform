@@ -44,6 +44,13 @@ Client-graded mode: keys are on the device (documented limitation; we prevent ac
 - **US:** FERPA (school controls education records; app acts under "school official" exception via agreement), COPPA (under-13; school may consent for educational use only), state student-privacy laws (e.g. SOPIPA in California).
 - **EU/UK:** GDPR — school is controller; a DPIA is advisable for children's data and voice recordings; data-processing terms needed if any central component is used.
 
+## Phase 5 implementation notes
+- **App OAuth scopes:** `openid`, `userinfo.email`, `drive.file` (non-sensitive). ID and access tokens are kept in memory only, never in IndexedDB or localStorage.
+- **Teacher's Apps Script scopes:** the full `drive` and `spreadsheets` scopes, `script.external_request` (only `oauth2.googleapis.com/tokeninfo` is called) and `userinfo.email`. The script runs in the teacher's own account, so these scopes cover only that teacher's data. It could be narrowed to `drive.file` (it only touches files it creates); this needs live testing before it is changed.
+- **Binding:** a roster row is linked to the Google `sub` the first time a student signs in with the matching email. After that, a different account cannot claim that row.
+- **Reports** hold the student number but no name or email. Names stay in the teacher's private sheet.
+- **Development data:** use fictional names and numbers and test accounts only, until the IT and privacy review (doc 13) is complete.
+
 ## Requires approval before real student use
 1. Workspace admin allow-listing of the OAuth client (and Apps Script for the broker).
 2. School privacy review / DPIA, parental notice or consent as applicable.

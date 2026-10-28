@@ -4,6 +4,9 @@ import { addAudioBytes, useAssetUrl } from '../storage/assets';
 import { RECORDER_MESSAGES, useRecorder } from './recorder';
 import { AudioPlayer } from './audioPlayer';
 import { blobBytes } from '../app/util';
+import { pickDriveFile, pickerAvailable } from '../google/picker';
+import { downloadFile } from '../google/drive';
+import { useAuth } from '../google/useAuth';
 
 /** Teacher audio: upload a file or record narration in the browser; optional transcript. */
 export function AudioField({ label, value, onChange, transcript = true, maxSeconds = 600 }: { label: string; value: AudioRef | null; onChange: (v: AudioRef | null) => void; transcript?: boolean; maxSeconds?: number }) {
@@ -19,6 +22,18 @@ export function AudioField({ label, value, onChange, transcript = true, maxSecon
       setError((e as Error).message.replace('Use PNG, JPEG, GIF or WebP images (SVG is not allowed).', 'Use MP3, M4A, OGG, WAV or WebM audio.'));
     }
   };
+  const { profile } = useAuth();
+  const fromDrive = async () => {
+    try {
+      setError(null);
+      const f = await pickDriveFile('audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg,audio/webm', 'Choose an audio file');
+      if (!f) return;
+      const d = await downloadFile(f.id);
+      await store(d.bytes, d.name);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
   const rec = useRecorder(maxSeconds, async (r) => store(await blobBytes(r.blob), `recording.${r.mime.split('/')[1]}`));
   return (
     <fieldset className="audio-field">
@@ -26,6 +41,7 @@ export function AudioField({ label, value, onChange, transcript = true, maxSecon
       {value && <AudioPlayer src={url} label={`${label} preview`} maxPlays={null} playsUsed={0} onPlay={() => {}} compact />}
       <div className="row wrap">
         <button type="button" className="secondary" onClick={() => file.current?.click()}>{value ? 'Replace with a file…' : 'Upload audio…'}</button>
+        {pickerAvailable() && profile && <button type="button" className="secondary" onClick={fromDrive}>From Google Drive…</button>}
         {rec.state === 'recording' ? (
           <button type="button" className="danger-btn" onClick={rec.stop}>Stop recording ({Math.floor(rec.elapsed)} s)</button>
         ) : (
@@ -45,7 +61,7 @@ export function AudioField({ label, value, onChange, transcript = true, maxSecon
           <p className="field-hint">Needed for deaf and hard-of-hearing students; you choose below when students may see it.</p>
         </div>
       )}
-      <p className="field-hint">MP3, M4A, OGG, WAV or WebM, up to 20 MB. Audio is stored on this device and included in exported packages, so it works offline. Google Drive audio arrives with Google sign-in (Phase 5).</p>
+      <p className="field-hint">MP3, M4A, OGG, WAV or WebM, up to 20 MB. Audio is stored on this device and included in exported packages, so it works offline. Audio chosen from Google Drive is copied into the activity, so your Drive file stays private.</p>
     </fieldset>
   );
 }

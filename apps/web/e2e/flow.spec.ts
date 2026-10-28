@@ -77,3 +77,12 @@ test('no serious accessibility violations on main screens', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
   await scan('player');
 });
+
+test('Phase 5 pages (signed out) have no serious accessibility violations', async ({ page }) => {
+  for (const route of ['#/setup-service', '#/classes', '#/a/asg_example?b=AKfycbTEST_broker_deployment_id_0123456789', '#/settings']) {
+    await page.goto(`/${route}`);
+    await expect(page.locator('main h1').first()).toBeVisible();
+    const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+    expect(r.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${route}: ${v.id}`)).toEqual([]);
+  }
+});

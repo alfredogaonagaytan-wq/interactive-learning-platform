@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { duplicateActivity, hasUnpublishedChanges, randomId, type Activity } from '@ilp/core';
-import { countStudentAttempts, deleteActivity, listActivities, putActivity } from '../storage/db';
+import { countStudentAttempts, deleteActivity, listActivities, listVersions, putActivity } from '../storage/db';
+import { AssignDialog } from './AssignDialog';
+import type { PublishedVersion } from '@ilp/core';
 import { exportPackage, importAsDrafts } from '../storage/library';
 import { navigate } from '../app/router';
 import { downloadBytes, formatTime, safeFilename } from '../app/util';
@@ -12,6 +14,7 @@ export function Library() {
   const [activities, setActivities] = useState<Activity[] | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [assigning, setAssigning] = useState<PublishedVersion | null>(null);
   const confirm = useConfirm();
 
   const refresh = async () => setActivities(await listActivities());
@@ -105,6 +108,7 @@ export function Library() {
                 </div>
                 <div className="actions">
                   <a className="button secondary" href={`#/teacher/edit/${a.id}`}>Edit</a>
+                  {a.publishedVersion !== null && <button type="button" className="secondary" onClick={async () => setAssigning((await listVersions(a.id)).at(-1) ?? null)}>Assign</button>}
                   <button type="button" className="ghost" onClick={async () => { await putActivity(duplicateActivity(a)); setMessage({ kind: 'ok', text: `Duplicated “${a.title}”.` }); await refresh(); }}>Duplicate</button>
                   <button type="button" className="ghost" onClick={() => safeExport([a], `${safeFilename(a.title)}${ZIP_PACKAGE_EXTENSION}`)}>Export</button>
                   <button type="button" className="ghost danger" onClick={() => remove(a)}>Delete</button>
@@ -114,6 +118,7 @@ export function Library() {
           })}
         </ul>
       )}
+      <AssignDialog version={assigning} onClose={() => setAssigning(null)} />
     </section>
   );
 }

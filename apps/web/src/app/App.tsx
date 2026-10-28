@@ -8,6 +8,12 @@ import { PlayPage } from '../student/PlayPage';
 import { SettingsPage } from './SettingsPage';
 import { useOnline } from '../student/ActivityPlayer';
 import { UpdateBanner } from './UpdateBanner';
+import { Classes } from '../teacher/Classes';
+import { ServiceSetup } from '../teacher/ServiceSetup';
+import { AssignmentPage } from '../student/AssignmentPage';
+import { useAuth } from '../google/useAuth';
+import { startOutboxWorker } from '../google/outbox';
+import { trySilentSignIn } from '../google/gis';
 
 function Home() {
   return (
@@ -25,7 +31,7 @@ function Home() {
         </a>
       </div>
       <p className="notice info">
-        <strong>Local mode.</strong> This early version has no sign-in and uploads nothing: everything stays in this browser. Google sign-in, class rosters and Drive submissions are planned for Phase 5.
+        <strong>Private by design.</strong> Activities and work are saved in this browser. Teachers who connect their own Google “submission service” receive student work directly in their Google Drive; there is no central database.
       </p>
     </section>
   );
@@ -34,7 +40,13 @@ function Home() {
 export function App() {
   const { path, query } = useRoute();
   const online = useOnline();
+  const { profile } = useAuth();
   const [section, a, b] = path;
+
+  useEffect(() => {
+    void trySilentSignIn();
+    return startOutboxWorker();
+  }, []);
 
   useEffect(() => {
     document.getElementById('main')?.focus({ preventScroll: true });
@@ -47,9 +59,12 @@ export function App() {
   else if (section === 'student') page = <StudentHome />;
   else if (section === 'play' && a && b && /^\d+$/.test(b)) page = <PlayPage activityId={a} version={Number(b)} />;
   else if (section === 'settings') page = <SettingsPage />;
+  else if (section === 'classes') page = <Classes />;
+  else if (section === 'setup-service') page = <ServiceSetup />;
+  else if (section === 'a' && a) page = <AssignmentPage assignmentId={a} brokerId={query.get('b')} />;
   else page = <Home />;
 
-  const area = section === 'teacher' ? 'teacher' : section === 'student' || section === 'play' ? 'student' : section;
+  const area = section === 'teacher' || section === 'classes' || section === 'setup-service' ? 'teacher' : section === 'student' || section === 'play' || section === 'a' ? 'student' : section;
   return (
     <>
       <a href="#main" className="skip-link" onClick={(e) => { e.preventDefault(); document.getElementById('main')?.focus(); }}>Skip to content</a>
@@ -59,11 +74,13 @@ export function App() {
           <span>Interactive Learning</span>
         </a>
         <nav aria-label="Main">
-          <a href="#/teacher" aria-current={area === 'teacher' ? 'page' : undefined}>Teacher</a>
+          <a href="#/teacher" aria-current={area === 'teacher' && section !== 'classes' ? 'page' : undefined}>Teacher</a>
+          <a href="#/classes" aria-current={section === 'classes' ? 'page' : undefined}>Classes</a>
           <a href="#/student" aria-current={area === 'student' ? 'page' : undefined}>Student</a>
           <a href="#/settings" aria-current={area === 'settings' ? 'page' : undefined}>Settings</a>
         </nav>
         {!online && <span className="badge warn offline-badge" role="status">Offline</span>}
+        {profile && <a href="#/settings" className="account-chip" title="Google account">{profile.email}</a>}
       </header>
       <UpdateBanner />
       <main id="main" tabIndex={-1}>{page}</main>

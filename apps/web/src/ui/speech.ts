@@ -27,15 +27,14 @@ export function speechRecognitionCtor(): SR | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-/** true when the browser reports it can recognise `lang` entirely on this device. */
-export async function onDeviceRecognition(lang: string): Promise<boolean> {
-  const C = speechRecognitionCtor();
-  if (!C?.available) return false;
-  try {
-    return (await C.available({ langs: [lang], processLocally: true })) === 'available';
-  } catch {
-    return false;
-  }
+/**
+ * On-device detection is deliberately NOT performed: calling
+ * SpeechRecognition.available() crashed the browser tab in testing (Chromium
+ * without an on-device speech service). The app therefore always uses the
+ * cautious disclosure that audio may be sent to the browser maker.
+ */
+export async function onDeviceRecognition(_lang: string): Promise<boolean> {
+  return false;
 }
 
 export class SpeechError extends Error {

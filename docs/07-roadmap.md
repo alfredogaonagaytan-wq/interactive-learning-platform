@@ -66,9 +66,23 @@ Phases set the order of work; they do not reduce the final scope. "Done" means i
 
 **Not done / limits:** PDF text extraction can mis-order multi-column layouts and keeps headers/footers — the teacher reviews and edits before approving (the original PDF is kept for students to open). Scanned images are not OCR'd (no AI/OCR by design; the teacher pastes text if students must annotate it). Teacher rubric scoring of submissions arrives with Phase 6 review tools. The Flint reference pages were not reachable, so the layout follows the spec rather than those examples.
 
-## Phase 5 — Google integration
-GIS sign-in, `drive.file` folder trees, roster Sheet, broker template (Apps Script) + deploy guide, enrollment binding by `sub`, assignment links, student Drive save + broker submission, receipts, sync queue with retry/backoff, conflict detection, duplicate/revision handling.
-**Accept when:** tests with **synthetic Workspace test accounts** show: enrolled student submits → teacher-owned file appears in correct folder; non-rostered and wrong-class accounts are refused; a student cannot submit as another number; resubmission with same attemptId is idempotent; a revised attempt supersedes visibly; interrupted upload resumes; both confirmations shown.
+## Phase 5 — Google integration ✅ (live verification pending)
+| Acceptance criterion | Evidence |
+|---|---|
+| Google sign-in (GIS ID token) and separate `drive.file` access token; tokens in memory only | `gis.ts`; Phase 5 flow tests (GIS test double) |
+| Per-teacher submission service (Apps Script) built from the same grading engine; guided setup page with copy buttons | `services/submission-broker`, `#/setup-service` |
+| Token verification (audience, issuer, expiry, verified email, optional school domain), teacher vs student roles | broker tests (19) |
+| Private roster in the teacher's Drive sheet; CSV import; Google-account binding by `sub`; students cannot claim another number | core + broker tests |
+| Classes and assignments (due date, late policy, attempts, close, show score); assignment links; cross-class isolation | broker tests, Classes UI |
+| Hidden answer keys mode (supported types) | core + broker + flow tests |
+| Submission: server re-grade, teacher-owned report JSON in class folder, recordings, HMAC receipt, tamper flag, idempotency, attempt limits, late/closed | broker tests |
+| Student copy saved to the student's own Drive (JSON + readable Google Doc) | flow tests (Drive test double) |
+| Offline-safe delivery queue with retries; two separate delivery statuses shown; Drive permission recovery | flow tests |
+| Drive Picker for teacher audio (copied into the activity, Drive file stays private) | manual (doc 12, step 15) |
+| GitHub Pages deployment workflow | `.github/workflows/deploy.yml` |
+
+**Must still be verified live** (doc 12): real Google sign-in on iOS/Android/Chromebook, Apps Script deployment and quotas, Drive uploads, school admin policies.
+**Bug fixed during Phase 5:** Chrome's on-device speech check (`SpeechRecognition.available`) crashed the browser tab in testing; the app no longer calls it.
 
 ## Phase 6 — Reporting & analytics
 Teacher dashboard (submission status, item analysis, skill heatmap, students needing support), score overrides with audit trail, feedback, release of results, CSV/PDF export (individual + class).

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { clearAllData, deleteAllRecordings, listRecordings } from '../storage/db';
 import { DEFAULT_RETENTION, getRetention, setRetention, type RetentionPrefs } from '../storage/retention';
 import { recordingSupported } from '../ui/recorder';
-import { onDeviceRecognition, speechRecognitionCtor, ttsSupported } from '../ui/speech';
+import { speechRecognitionCtor, ttsSupported } from '../ui/speech';
 import { useConfirm } from '../ui/dialog';
+import { AccountPanel } from '../google/SignIn';
 
 export function SettingsPage() {
   const [estimate, setEstimate] = useState<{ usage?: number; quota?: number } | null>(null);
@@ -23,7 +24,7 @@ export function SettingsPage() {
     void navigator.storage?.persisted?.().then(setPersisted);
     void refreshRecs();
     void getRetention().then(setRet);
-    void onDeviceRecognition(navigator.language || 'en-US').then((asrLocal) => setSpeech({ record: recordingSupported(), asr: !!speechRecognitionCtor(), asrLocal, tts: ttsSupported() }));
+    setSpeech({ record: recordingSupported(), asr: !!speechRecognitionCtor(), asrLocal: false, tts: ttsSupported() });
   }, []);
   const saveRet = async (p: RetentionPrefs) => {
     setRet(p);
@@ -35,9 +36,11 @@ export function SettingsPage() {
   return (
     <section aria-labelledby="set-h" className="narrow">
       <h1 id="set-h">Settings &amp; privacy</h1>
+      <AccountPanel purpose="Sign in to open assignments from your teacher, or (teachers) to manage classes." />
+      <p><a href="#/setup-service">Teachers: set up or change your submission service</a></p>
       <div className="card">
         <h2>Where your data is</h2>
-        <p>This version runs entirely on this device. Activities and answers are stored in this browser’s storage (IndexedDB). Nothing is uploaded, there is no sign-in, no advertising and no tracking.</p>
+        <p>Activities and answers are stored in this browser (IndexedDB). When you submit an assignment, your work goes only to your teacher’s own Google Drive (through the teacher’s submission service) and, as your copy, to your Google Drive. There is no advertising, no tracking and no central database.</p>
         <p className="meta">Storage used: {mb(estimate?.usage)} of about {mb(estimate?.quota)} available.</p>
         <p>
           Protected from automatic clean-up: <strong>{persisted === null ? 'unknown' : persisted ? 'yes' : 'no'}</strong>{' '}
@@ -88,7 +91,7 @@ export function SettingsPage() {
       </div>
       <div className="card">
         <h2>About</h2>
-        <p>Interactive Learning Platform · version 0.4.0 (Phase 4, local mode). Open source under the MIT licence.</p>
+        <p>Interactive Learning Platform · version 0.5.0 (Phase 5). Open source under the MIT licence.</p>
       </div>
     </section>
   );

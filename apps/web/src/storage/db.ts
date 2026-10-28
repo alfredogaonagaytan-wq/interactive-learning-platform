@@ -18,6 +18,32 @@ interface IlpDB extends DBSchema {
   bank: { key: string; value: BankEntry };
   /** Student voice recordings. Kept on this device only, subject to retention settings. */
   recordings: { key: string; value: StoredRecording; indexes: { byAttempt: string } };
+  /** Submissions waiting to be (or already) delivered to the teacher and to the student's Drive. */
+  outbox: { key: string; value: OutboxEntry };
+  /** Assignments opened from a teacher's link (metadata only; the activity is stored as a version). */
+  assignments: { key: string; value: LocalAssignment };
+}
+
+export type DeliveryState = 'pending' | 'sending' | 'done' | 'failed' | 'needs-sign-in' | 'needs-permission';
+export interface OutboxEntry {
+  attemptId: string;
+  brokerId: string;
+  assignmentId: string;
+  title: string;
+  payload: import('@ilp/core').SubmissionPayload;
+  report: import('@ilp/core').Report;
+  teacher: { state: DeliveryState; tries: number; error: string; nextAt: number; receipt: import('@ilp/core').Receipt | null };
+  drive: { state: DeliveryState; tries: number; error: string; nextAt: number; fileIds: string[]; link: string };
+  createdAt: string;
+  updatedAt: string;
+}
+export interface LocalAssignment {
+  assignmentId: string;
+  brokerId: string;
+  assignment: import('@ilp/core').Assignment;
+  studentNumber: string;
+  account: string;
+  fetchedAt: string;
 }
 
 export interface StoredRecording {
@@ -50,7 +76,7 @@ export interface BankEntry {
 }
 
 export const DB_NAME = 'ilp';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 let dbPromise: Promise<IDBPDatabase<IlpDB>> | null = null;
 
 export function db(): Promise<IDBPDatabase<IlpDB>> {
@@ -71,6 +97,10 @@ export function db(): Promise<IDBPDatabase<IlpDB>> {
       }
       if (oldVersion < 3) {
         database.createObjectStore('recordings', { keyPath: 'id' }).createIndex('byAttempt', 'attemptId');
+      }
+      if (oldVersion < 4) {
+        database.createObjectStore('outbox', { keyPath: 'attemptId' });
+        database.createObjectStore('assignments', { keyPath: 'assignmentId' });
       }
     },
     blocking() {
@@ -197,7 +227,7 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
 /** Erase everything this app stored on this device (activities, versions, work, preferences). */
 export async function clearAllData(): Promise<void> {
   const d = await db();
-  const stores = ['activities', 'versions', 'attempts', 'meta', 'assets', 'bank', 'recordings'] as const;
+  const stores = ['activities', 'versions', 'attempts', 'meta', 'assets', 'bank', 'recordings', 'outbox', 'assignments'] as const;
   const tx = d.transaction([...stores], 'readwrite');
   await Promise.all([...stores.map((s) => tx.objectStore(s).clear()), tx.done]);
   journalClearAll();
@@ -268,4 +298,24 @@ export async function purgeRecordingsOlderThan(days: number, now = Date.now()): 
     }
   }
   return n;
+}
+
+// ---- Outbox & assignments ----
+export async function putOutbox(e: OutboxEntry): Promise<void> {
+  await (await db()).put('outbox', e);
+}
+export async function getOutbox(attemptId: string): Promise<OutboxEntry | undefined> {
+  return (await db()).get('outbox', attemptId);
+}
+export async function listOutbox(): Promise<OutboxEntry[]> {
+  return (await (await db()).getAll('outbox')).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+export async function putLocalAssignment(a: LocalAssignment): Promise<void> {
+  await (await db()).put('assignments', a);
+}
+export async function getLocalAssignment(id: string): Promise<LocalAssignment | undefined> {
+  return (await db()).get('assignments', id);
+}
+export async function listLocalAssignments(): Promise<LocalAssignment[]> {
+  return (await (await db()).getAll('assignments')).sort((a, b) => b.fetchedAt.localeCompare(a.fetchedAt));
 }

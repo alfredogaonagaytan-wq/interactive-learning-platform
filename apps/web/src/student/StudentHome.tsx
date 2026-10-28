@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { gradeActivity, type Attempt, type PublishedVersion } from '@ilp/core';
-import { listAttempts, listLatestVersions } from '../storage/db';
+import { listAttempts, listLatestVersions, listLocalAssignments, listOutbox, type LocalAssignment, type OutboxEntry } from '../storage/db';
+import { onOutboxChange } from '../google/outbox';
 import { importForStudent } from '../storage/library';
 import { formatTime } from '../app/util';
 
@@ -14,8 +15,15 @@ export function StudentHome() {
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [assigned, setAssigned] = useState<LocalAssignment[]>([]);
+  const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
+  useEffect(() => {
+    const load = () => void Promise.all([listLocalAssignments(), listOutbox()]).then(([a, o]) => { setAssigned(a); setOutbox(o); });
+    load();
+    return onOutboxChange(load);
+  }, []);
   const refresh = async () => {
-    const versions = await listLatestVersions();
+    const versions = (await listLatestVersions()).filter((v) => !v.activityId.startsWith('asg_'));
     setRows(await Promise.all(versions.map(async (version) => ({ version, attempts: await listAttempts(version.activityId, version.version, 'student') }))));
   };
   useEffect(() => {
@@ -42,7 +50,31 @@ export function StudentHome() {
           }} />
         </div>
       </div>
-      <p className="meta">Your answers are saved on this device as you work. Signing in and sending work to your teacher’s Google Drive come in a later version.</p>
+      <p className="meta">Your answers are saved on this device as you work. Assignments from a teacher’s link are delivered to your teacher when you submit.</p>
+      {assigned.length > 0 && (
+        <>
+          <h2>Assignments from teachers</h2>
+          <ul className="activity-list">
+            {assigned.map((a) => {
+              const sent = outbox.filter((o) => o.assignmentId === a.assignmentId);
+              const waiting = sent.filter((o) => o.teacher.state !== 'done' || o.drive.state !== 'done').length;
+              return (
+                <li key={a.assignmentId} className="card activity-row">
+                  <div>
+                    <h3><a href={`#/a/${a.assignmentId}?b=${a.brokerId}`}>{a.assignment.title}</a></h3>
+                    <p className="meta">
+                      {a.assignment.dueAt ? `Due ${formatTime(a.assignment.dueAt)} · ` : ''}
+                      {sent.length === 0 ? 'Not submitted' : waiting ? <span className="badge warn">{waiting} submission(s) still sending</span> : <span className="badge ok">Delivered</span>}
+                    </p>
+                  </div>
+                  <a className="button primary" href={`#/a/${a.assignmentId}?b=${a.brokerId}`}>Open</a>
+                </li>
+              );
+            })}
+          </ul>
+          <h2>Activities on this device</h2>
+        </>
+      )}
       {message && <p className={`notice ${message.kind}`} role={message.kind === 'error' ? 'alert' : 'status'}>{message.text}</p>}
       {rows === null ? <p role="status">Loading…</p> : rows.length === 0 ? (
         <div className="empty card">

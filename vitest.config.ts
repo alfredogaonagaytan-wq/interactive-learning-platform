@@ -13,6 +13,14 @@ export default defineConfig({
         },
       },
       {
+        test: {
+          name: 'broker',
+          root: './services/submission-broker',
+          include: ['test/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
         plugins: [react()],
         resolve: {
           alias: { 'virtual:pwa-register/react': new URL('./apps/web/test/pwa-register-stub.ts', import.meta.url).pathname },
