@@ -30,7 +30,8 @@ export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   plugins: [
     react(),
-    cspPlugin,
+    // The hosted preview (claude.ai artifact) applies its own CSP; skip ours there.
+    ...(process.env.ILP_HOSTED_PREVIEW ? [] : [cspPlugin]),
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
@@ -58,5 +59,5 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
-  build: { target: 'es2022', sourcemap: true },
+  build: { target: 'es2022', sourcemap: !process.env.ILP_HOSTED_PREVIEW, outDir: process.env.ILP_OUT_DIR ?? 'dist', emptyOutDir: true },
 });
